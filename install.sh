@@ -83,6 +83,26 @@ if ! command -v git &>/dev/null; then
 fi
 success "git is available"
 
+# Ensure git-lfs is available (binary is tracked with LFS)
+if ! command -v git-lfs &>/dev/null; then
+    if command -v brew &>/dev/null; then
+        info "Installing Git LFS..."
+        brew install git-lfs
+        git lfs install
+    else
+        warn "Git LFS not found. Installing Homebrew first..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        if [[ -f /opt/homebrew/bin/brew ]]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        elif [[ -f /usr/local/bin/brew ]]; then
+            eval "$(/usr/local/bin/brew shellenv)"
+        fi
+        brew install git-lfs
+        git lfs install
+    fi
+fi
+success "git-lfs is available"
+
 # ── Step 2: Download or update release ────────────────────────────────────────
 step "Downloading Agile Agent"
 
