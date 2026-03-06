@@ -195,18 +195,39 @@ step "VS Code Copilot Bridge Extension"
 VSIX_PATH="$INSTALL_DIR/copilot-bridge.vsix"
 
 if [[ -f "$VSIX_PATH" ]]; then
+    # Auto-detect VS Code CLI if not in PATH
+    if ! command -v code &>/dev/null; then
+        # Check common macOS VS Code locations
+        VSCODE_PATHS=(
+            "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
+            "$HOME/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
+            "/Applications/Visual Studio Code - Insiders.app/Contents/Resources/app/bin/code-insiders"
+        )
+        for vsp in "${VSCODE_PATHS[@]}"; do
+            if [[ -f "$vsp" ]]; then
+                info "Found VS Code at: $(dirname "$(dirname "$(dirname "$(dirname "$(dirname "$vsp")")")")")"
+                # Create symlink in /usr/local/bin
+                if [[ -d "/usr/local/bin" ]]; then
+                    ln -sf "$vsp" /usr/local/bin/code 2>/dev/null && \
+                        success "Linked 'code' CLI to /usr/local/bin/code" || \
+                        info "Could not create symlink (try: sudo ln -sf \"$vsp\" /usr/local/bin/code)"
+                fi
+                export PATH="$(dirname "$vsp"):$PATH"
+                break
+            fi
+        done
+    fi
+
     if command -v code &>/dev/null; then
         info "Installing VS Code extension..."
         code --install-extension "$VSIX_PATH" --force 2>/dev/null && \
             success "Copilot Bridge extension installed in VS Code" || \
             warn "Failed to auto-install extension. Install manually: code --install-extension $VSIX_PATH"
     else
-        warn "VS Code CLI (code) not found."
-        echo -e "  ${DIM}To use the Copilot Bridge, install VS Code and then run:${RESET}"
-        echo -e "  ${CYAN}code --install-extension $VSIX_PATH${RESET}"
-        echo ""
-        echo -e "  ${DIM}If VS Code is installed but 'code' is not in PATH:${RESET}"
-        echo -e "  ${DIM}Open VS Code → ⇧⌘P → \"Shell Command: Install 'code' in PATH\"${RESET}"
+        warn "VS Code not found on this machine."
+        echo -e "  ${DIM}To use the Copilot Bridge:${RESET}"
+        echo -e "  ${DIM}1. Install VS Code: ${CYAN}https://code.visualstudio.com${RESET}"
+        echo -e "  ${DIM}2. Then run:${RESET} ${CYAN}code --install-extension $VSIX_PATH${RESET}"
     fi
 else
     info "No VS Code extension found in release — skipping"
