@@ -189,6 +189,29 @@ else
     info "Check logs: ${DIM}cat /tmp/agile-agent.log${RESET}"
 fi
 
+# ── Step 7: Install VS Code Copilot Bridge extension ─────────────────────────
+step "VS Code Copilot Bridge Extension"
+
+VSIX_PATH="$INSTALL_DIR/copilot-bridge.vsix"
+
+if [[ -f "$VSIX_PATH" ]]; then
+    if command -v code &>/dev/null; then
+        info "Installing VS Code extension..."
+        code --install-extension "$VSIX_PATH" --force 2>/dev/null && \
+            success "Copilot Bridge extension installed in VS Code" || \
+            warn "Failed to auto-install extension. Install manually: code --install-extension $VSIX_PATH"
+    else
+        warn "VS Code CLI (code) not found."
+        echo -e "  ${DIM}To use the Copilot Bridge, install VS Code and then run:${RESET}"
+        echo -e "  ${CYAN}code --install-extension $VSIX_PATH${RESET}"
+        echo ""
+        echo -e "  ${DIM}If VS Code is installed but 'code' is not in PATH:${RESET}"
+        echo -e "  ${DIM}Open VS Code → ⇧⌘P → \"Shell Command: Install 'code' in PATH\"${RESET}"
+    fi
+else
+    info "No VS Code extension found in release — skipping"
+fi
+
 # ── Done! ─────────────────────────────────────────────────────────────────────
 echo -e "
 ${GREEN}${BOLD}  ╭─────────────────────────────────────────────────────────╮${RESET}
