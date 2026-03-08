@@ -171,6 +171,50 @@ EOF
 launchctl load -w "$PLIST_PATH"
 success "LaunchAgent service installed and started"
 
+# ── Step 5b: Set up hourly auto-updater ──────────────────────────────────────
+step "Setting up auto-updater (checks on start + every hour)"
+
+UPDATER_PLIST_NAME="com.agile-agent.updater"
+UPDATER_PLIST_PATH="$HOME/Library/LaunchAgents/${UPDATER_PLIST_NAME}.plist"
+
+# Copy update.sh into the install dir
+if [[ -f "$INSTALL_DIR/update.sh" ]]; then
+    chmod +x "$INSTALL_DIR/update.sh"
+fi
+
+# Stop existing updater if running
+if [[ -f "$UPDATER_PLIST_PATH" ]]; then
+    launchctl unload "$UPDATER_PLIST_PATH" 2>/dev/null || true
+fi
+
+cat > "$UPDATER_PLIST_PATH" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>${UPDATER_PLIST_NAME}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>${INSTALL_DIR}/update.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>AGILE_AGENT_HOME</key><string>${INSTALL_DIR}</string>
+    <key>HOME</key><string>${HOME}</string>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>StartInterval</key><integer>3600</integer>
+  <key>StandardOutPath</key><string>/tmp/agile-agent-update.log</string>
+  <key>StandardErrorPath</key><string>/tmp/agile-agent-update.log</string>
+</dict>
+</plist>
+EOF
+
+launchctl load -w "$UPDATER_PLIST_PATH"
+success "Auto-updater installed (runs at login + every hour)"
+
 # ── Step 6: Wait for server to be ready ───────────────────────────────────────
 step "Starting Agile Agent"
 

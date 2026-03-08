@@ -14,6 +14,7 @@ RESET='\033[0m'
 INSTALL_DIR="${AGILE_AGENT_HOME:-$HOME/.agile-agent}"
 PLIST_NAME="com.agile-agent"
 PLIST_PATH="$HOME/Library/LaunchAgents/${PLIST_NAME}.plist"
+UPDATER_PLIST_PATH="$HOME/Library/LaunchAgents/com.agile-agent.updater.plist"
 
 info()    { echo -e "\033[0;34m▸\033[0m $1"; }
 success() { echo -e "${GREEN}✔${RESET} $1"; }
@@ -24,13 +25,20 @@ ${RED}${BOLD}  │     🗑️  Agile Agent Uninstaller      │${RESET}
 ${RED}${BOLD}  ╰─────────────────────────────────────╯${RESET}
 "
 
-# Stop and remove the LaunchAgent
+# Stop and remove the main LaunchAgent
 if [[ -f "$PLIST_PATH" ]]; then
     launchctl unload "$PLIST_PATH" 2>/dev/null || true
     rm -f "$PLIST_PATH"
     success "LaunchAgent service stopped and removed"
 else
     info "No LaunchAgent service found (already removed)"
+fi
+
+# Stop and remove the auto-updater LaunchAgent
+if [[ -f "$UPDATER_PLIST_PATH" ]]; then
+    launchctl unload "$UPDATER_PLIST_PATH" 2>/dev/null || true
+    rm -f "$UPDATER_PLIST_PATH"
+    success "Auto-updater stopped and removed"
 fi
 
 # Remove installation directory
