@@ -250,12 +250,6 @@ if [[ -f "$VSIX_PATH" ]]; then
         for vsp in "${VSCODE_PATHS[@]}"; do
             if [[ -f "$vsp" ]]; then
                 info "Found VS Code at: $(dirname "$(dirname "$(dirname "$(dirname "$(dirname "$vsp")")")")")"
-                # Create symlink in /usr/local/bin
-                if [[ -d "/usr/local/bin" ]]; then
-                    ln -sf "$vsp" /usr/local/bin/code 2>/dev/null && \
-                        success "Linked 'code' CLI to /usr/local/bin/code" || \
-                        info "Could not create symlink (try: sudo ln -sf \"$vsp\" /usr/local/bin/code)"
-                fi
                 export PATH="$(dirname "$vsp"):$PATH"
                 break
             fi
