@@ -109,7 +109,9 @@ step "Downloading Agile Agent"
 if [[ -d "$INSTALL_DIR/.git" ]]; then
     info "Updating existing installation..."
     cd "$INSTALL_DIR"
-    git pull --ff-only origin main 2>/dev/null || git pull origin main
+    git fetch origin main 2>/dev/null || true
+    git reset --hard origin/main 2>/dev/null || true
+    git clean -fd 2>/dev/null || true
     success "Updated to latest version"
 else
     info "Downloading to $INSTALL_DIR..."

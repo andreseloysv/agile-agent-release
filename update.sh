@@ -20,9 +20,10 @@ cd "$INSTALL_DIR" || { log "Install dir not found, skipping."; exit 0; }
 # Capture current commit before pulling
 BEFORE=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
-# Pull latest (quietly)
+# Pull latest (quietly), forcing through any local changes
 git fetch --quiet origin main 2>>"$LOG" || { log "Network error, skipping."; exit 0; }
-git merge --ff-only origin/main --quiet 2>>"$LOG" || { log "Cannot fast-forward, skipping."; exit 0; }
+git reset --hard origin/main --quiet 2>>"$LOG" || { log "Cannot reset to origin/main, skipping."; exit 0; }
+git clean -fd --quiet 2>>"$LOG" || true
 
 AFTER=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
