@@ -310,6 +310,7 @@ if [[ -f "$DMG_PATH" ]]; then
         info "Starting Agile Agent menu bar app..."
         open "$APP_DEST"
         success "macOS app installed and launched"
+        APP_LAUNCHED="true"
     else
         warn "Could not mount DMG or find app bundle inside."
     fi
@@ -334,7 +335,7 @@ ${GREEN}${BOLD}  │    Uninstall:  ${RESET}${DIM}~/.agile-agent/uninstall.sh${G
 ${GREEN}${BOLD}  ╰─────────────────────────────────────────────────────────╯${RESET}
 "
 
-# Open browser
-if [[ "${CI:-}" != "true" ]]; then
+# Open browser if not already launched by the mac app
+if [[ "${CI:-}" != "true" && "${APP_LAUNCHED:-false}" != "true" ]]; then
     open "http://agileagent.localhost:${PORT}" 2>/dev/null || true
 fi
