@@ -229,7 +229,7 @@ for i in {1..30}; do
 done
 
 if curl -sf "http://localhost:${PORT}" >/dev/null 2>&1; then
-    success "Server is running on http://localhost:${PORT}"
+    success "Server is running on http://agileagent.localhost:${PORT}"
 else
     warn "Server is starting up — it may take a few more seconds"
     info "Check logs: ${DIM}cat /tmp/agile-agent.log${RESET}"
@@ -315,7 +315,7 @@ echo -e "
 ${GREEN}${BOLD}  ╭─────────────────────────────────────────────────────────╮${RESET}
 ${GREEN}${BOLD}  │              🎉 Agile Agent is ready!                   │${RESET}
 ${GREEN}${BOLD}  │                                                         │${RESET}
-${GREEN}${BOLD}  │  Open:   ${RESET}${CYAN}http://localhost:${PORT}${GREEN}${BOLD}                       │${RESET}
+${GREEN}${BOLD}  │  Open:   ${RESET}${CYAN}http://agileagent.localhost:${PORT}${GREEN}${BOLD}               │${RESET}
 ${GREEN}${BOLD}  │                                                         │${RESET}
 ${GREEN}${BOLD}  │  No Node.js needed — runs as a native binary.           │${RESET}
 ${GREEN}${BOLD}  │  Starts automatically on boot.                          │${RESET}
@@ -329,5 +329,5 @@ ${GREEN}${BOLD}  ╰────────────────────
 
 # Open browser
 if [[ "${CI:-}" != "true" ]]; then
-    open "http://localhost:${PORT}" 2>/dev/null || true
+    open "http://agileagent.localhost:${PORT}" 2>/dev/null || true
 fi
