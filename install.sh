@@ -284,12 +284,19 @@ if [[ -f "$DMG_PATH" ]]; then
     MOUNT_DIR=$(echo "$MOUNT_OUT" | grep "/Volumes/" | tail -1 | awk -F'\t' '{print $NF}')
 
     if [[ -n "$MOUNT_DIR" && -d "$MOUNT_DIR/Agile Agent.app" ]]; then
-        info "Filtering quarantine attributes and copying to Applications..."
+        info "Closing existing app and copying new version to Applications..."
+        # Force quit the app if it's currently running so we can overwrite it
+        pkill -f "Agile Agent.app" || true
+        sleep 1
+
         # Copy to /Applications, fallback to ~/Applications if permission denied
         APP_DEST="/Applications/Agile Agent.app"
+        rm -rf "$APP_DEST" 2>/dev/null || true
+        
         if ! cp -R "$MOUNT_DIR/Agile Agent.app" "$APP_DEST" 2>/dev/null; then
             mkdir -p "$HOME/Applications"
             APP_DEST="$HOME/Applications/Agile Agent.app"
+            rm -rf "$APP_DEST" 2>/dev/null || true
             cp -R "$MOUNT_DIR/Agile Agent.app" "$APP_DEST"
         fi
 
