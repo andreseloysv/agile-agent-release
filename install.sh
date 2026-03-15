@@ -273,6 +273,43 @@ else
     info "No VS Code extension found in release — skipping"
 fi
 
+# ── Step 8: Install macOS Menu Bar App ────────────────────────────────────────
+step "Installing macOS App"
+
+DMG_PATH="$INSTALL_DIR/Agile Agent.dmg"
+if [[ -f "$DMG_PATH" ]]; then
+    info "Mounting DMG..."
+    # Mount silently
+    MOUNT_OUT=$(hdiutil attach "$DMG_PATH" -nobrowse -noverify -noautoopen 2>/dev/null)
+    MOUNT_DIR=$(echo "$MOUNT_OUT" | grep "/Volumes/" | tail -1 | awk -F'\t' '{print $NF}')
+
+    if [[ -n "$MOUNT_DIR" && -d "$MOUNT_DIR/Agile Agent.app" ]]; then
+        info "Filtering quarantine attributes and copying to Applications..."
+        # Copy to /Applications, fallback to ~/Applications if permission denied
+        APP_DEST="/Applications/Agile Agent.app"
+        if ! cp -R "$MOUNT_DIR/Agile Agent.app" "$APP_DEST" 2>/dev/null; then
+            mkdir -p "$HOME/Applications"
+            APP_DEST="$HOME/Applications/Agile Agent.app"
+            cp -R "$MOUNT_DIR/Agile Agent.app" "$APP_DEST"
+        fi
+
+        # Remove quarantine so it opens without the Gatekeeper prompt
+        xattr -rd com.apple.quarantine "$APP_DEST" 2>/dev/null || true
+
+        # Unmount
+        hdiutil detach "$MOUNT_DIR" -quiet 2>/dev/null || true
+
+        # Launch the app so the menu bar icon appears
+        info "Starting Agile Agent menu bar app..."
+        open "$APP_DEST"
+        success "macOS app installed and launched"
+    else
+        warn "Could not mount DMG or find app bundle inside."
+    fi
+else
+    info "No Agile Agent.dmg found in release — skipping"
+fi
+
 # ── Done! ─────────────────────────────────────────────────────────────────────
 echo -e "
 ${GREEN}${BOLD}  ╭─────────────────────────────────────────────────────────╮${RESET}
