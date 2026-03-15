@@ -39,4 +39,36 @@ launchctl unload "$PLIST_PATH" 2>>"$LOG" || true
 sleep 1
 launchctl load -w "$PLIST_PATH" 2>>"$LOG" || true
 
+# Update the macOS UI App if DMG exists
+DMG_PATH="$INSTALL_DIR/Agile Agent.dmg"
+if [[ -f "$DMG_PATH" ]]; then
+    log "Mounting DMG to update Agile Agent.app..."
+    MOUNT_OUT=$(hdiutil attach "$DMG_PATH" -nobrowse -noverify -noautoopen 2>/dev/null || true)
+    MOUNT_DIR=$(echo "$MOUNT_OUT" | grep "/Volumes/" | tail -1 | awk -F'\t' '{print $NF}')
+
+    if [[ -n "$MOUNT_DIR" && -d "$MOUNT_DIR/Agile Agent.app" ]]; then
+        log "Closing existing app and copying new version..."
+        pkill -f "Agile Agent.app" || true
+        sleep 1
+
+        APP_DEST="/Applications/Agile Agent.app"
+        rm -rf "$APP_DEST" 2>/dev/null || true
+        
+        if ! cp -R "$MOUNT_DIR/Agile Agent.app" "$APP_DEST" 2>/dev/null; then
+            mkdir -p "$HOME/Applications"
+            APP_DEST="$HOME/Applications/Agile Agent.app"
+            rm -rf "$APP_DEST" 2>/dev/null || true
+            cp -R "$MOUNT_DIR/Agile Agent.app" "$APP_DEST"
+        fi
+
+        xattr -rd com.apple.quarantine "$APP_DEST" 2>>"$LOG" || true
+        hdiutil detach "$MOUNT_DIR" -quiet 2>/dev/null || true
+
+        log "Starting updated Agile Agent menu bar app..."
+        open "$APP_DEST"
+    else
+        log "WARNING: Could not mount DMG or find app bundle inside."
+    fi
+fi
+
 log "Restart complete. Update done."
