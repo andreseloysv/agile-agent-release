@@ -162,8 +162,8 @@ cat > "$PLIST_PATH" <<EOF
     <key>AGILE_AGENT_HOME</key><string>${INSTALL_DIR}</string>
     <key>AGILE_AGENT_STATIC</key><string>${INSTALL_DIR}/public</string>
   </dict>
-  <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><true/>
+  <key>RunAtLoad</key><false/>
+  <key>KeepAlive</key><false/>
   <key>StandardOutPath</key><string>/tmp/agile-agent.log</string>
   <key>StandardErrorPath</key><string>/tmp/agile-agent.err</string>
 </dict>
@@ -171,7 +171,16 @@ cat > "$PLIST_PATH" <<EOF
 EOF
 
 launchctl load -w "$PLIST_PATH"
+launchctl start "$PLIST_NAME"
 success "LaunchAgent service installed and started"
+
+# Copy start/stop scripts
+for script in agile-agent-start.sh agile-agent-stop.sh; do
+    if [[ -f "$INSTALL_DIR/$script" ]]; then
+        chmod +x "$INSTALL_DIR/$script"
+    fi
+done
+success "Start/stop scripts available"
 
 # ── Step 5b: Set up hourly auto-updater ──────────────────────────────────────
 step "Setting up auto-updater (checks on start + every hour)"
@@ -326,9 +335,11 @@ ${GREEN}${BOLD}  │                                                         │
 ${GREEN}${BOLD}  │  Open:   ${RESET}${CYAN}http://agileagent.localhost:${PORT}${GREEN}${BOLD}               │${RESET}
 ${GREEN}${BOLD}  │                                                         │${RESET}
 ${GREEN}${BOLD}  │  No Node.js needed — runs as a native binary.           │${RESET}
-${GREEN}${BOLD}  │  Starts automatically on boot.                          │${RESET}
+${GREEN}${BOLD}  │  Does NOT start automatically on boot.                  │${RESET}
 ${GREEN}${BOLD}  │                                                         │${RESET}
 ${GREEN}${BOLD}  │  Commands:                                              │${RESET}
+${GREEN}${BOLD}  │    Start:      ${RESET}${DIM}~/.agile-agent/agile-agent-start.sh${GREEN}${BOLD}     │${RESET}
+${GREEN}${BOLD}  │    Stop:       ${RESET}${DIM}~/.agile-agent/agile-agent-stop.sh${GREEN}${BOLD}      │${RESET}
 ${GREEN}${BOLD}  │    Update:     ${RESET}${DIM}cd ~/.agile-agent && git pull${GREEN}${BOLD}             │${RESET}
 ${GREEN}${BOLD}  │    Logs:       ${RESET}${DIM}cat /tmp/agile-agent.log${GREEN}${BOLD}                │${RESET}
 ${GREEN}${BOLD}  │    Uninstall:  ${RESET}${DIM}~/.agile-agent/uninstall.sh${GREEN}${BOLD}             │${RESET}
