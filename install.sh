@@ -84,24 +84,18 @@ fi
 success "git is available"
 
 # Ensure git-lfs is available (binary is tracked with LFS)
-if ! command -v git-lfs &>/dev/null; then
-    if command -v brew &>/dev/null; then
-        info "Installing Git LFS..."
-        brew install git-lfs
-        git lfs install
-    else
-        warn "Git LFS not found. Installing Homebrew first..."
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        if [[ -f /opt/homebrew/bin/brew ]]; then
-            eval "$(/opt/homebrew/bin/brew shellenv)"
-        elif [[ -f /usr/local/bin/brew ]]; then
-            eval "$(/usr/local/bin/brew shellenv)"
-        fi
-        brew install git-lfs
-        git lfs install
-    fi
+# Download ensure-deps.sh if not available locally (first install)
+DEPS_SCRIPT="$INSTALL_DIR/scripts/ensure-deps.sh"
+if [[ ! -f "$DEPS_SCRIPT" ]]; then
+    DEPS_SCRIPT="$(mktemp /tmp/ensure-deps-XXXXXX.sh)"
+    curl -fsSL "https://raw.githubusercontent.com/andreseloysv/agile-agent-release/main/scripts/ensure-deps.sh" \
+        -o "$DEPS_SCRIPT" 2>/dev/null || true
 fi
-success "git-lfs is available"
+if [[ -f "$DEPS_SCRIPT" ]]; then
+    source "$DEPS_SCRIPT"
+    ensure_git_lfs || true
+fi
+success "Prerequisites checked"
 
 # ── Step 2: Download or update release ────────────────────────────────────────
 step "Downloading Agile Agent"
@@ -111,7 +105,7 @@ if [[ -d "$INSTALL_DIR/.git" ]]; then
     cd "$INSTALL_DIR"
     git fetch origin main 2>/dev/null || true
     git reset --hard origin/main 2>/dev/null || true
-    git clean -fd 2>/dev/null || true
+    # NOTE: Do NOT run 'git clean -fd' — it deletes user data (SQLite DB, configs)
     success "Updated to latest version"
 else
     info "Downloading to $INSTALL_DIR..."
