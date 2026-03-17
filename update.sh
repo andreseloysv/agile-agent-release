@@ -23,7 +23,14 @@ BEFORE=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 # Pull latest (quietly), forcing through any local changes
 git fetch --quiet origin main 2>>"$LOG" || { log "Network error, skipping."; exit 0; }
 git reset --hard origin/main --quiet 2>>"$LOG" || { log "Cannot reset to origin/main, skipping."; exit 0; }
-git clean -fd --quiet 2>>"$LOG" || true
+
+# ⚠️ DO NOT use `git clean -fd` here!
+# The install dir contains untracked user data:
+#   data/agile-agent.db  — SQLite database (projects, conversations, env vars)
+#   data/memories/        — long-term memory store
+# git clean -fd would DELETE all of it, causing total data loss.
+# Only remove known obsolete files if needed:
+# rm -f "$INSTALL_DIR/some-old-file" 2>/dev/null || true
 
 AFTER=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
@@ -33,6 +40,19 @@ if [[ "$BEFORE" == "$AFTER" ]]; then
 fi
 
 log "Updated $BEFORE → $AFTER. Restarting service..."
+
+# Graceful shutdown: check if the server is actively processing a request
+# by checking for an active WebSocket connection. If busy, wait up to 30s.
+if command -v curl &>/dev/null; then
+    for i in {1..6}; do
+        ACTIVE=$(curl -sf "http://localhost:4372/api/health" 2>/dev/null | grep -c '"activeRuns":[1-9]' || echo "0")
+        if [[ "$ACTIVE" == "0" ]]; then
+            break
+        fi
+        log "Server is busy (active run detected). Waiting 5s before restart... ($i/6)"
+        sleep 5
+    done
+fi
 
 # Restart the main LaunchAgent so the new binary / frontend are loaded
 launchctl unload "$PLIST_PATH" 2>>"$LOG" || true
