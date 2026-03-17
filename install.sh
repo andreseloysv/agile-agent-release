@@ -81,6 +81,20 @@ if ! command -v git &>/dev/null; then
     echo -e "${YELLOW}Please complete the Xcode CLT installation, then re-run this script.${RESET}"
     exit 1
 fi
+
+# Verify git actually works (catches broken/partial Xcode installations where
+# the binary exists but xctoolchain is missing — error: "can't open file: ...")
+if ! git --version &>/dev/null; then
+    error "git is installed but appears broken (missing Xcode toolchain)."
+    info "This usually means Xcode Command Line Tools need to be (re)installed."
+    echo ""
+    info "Try running:"
+    echo -e "  ${CYAN}sudo xcode-select --reset${RESET}"
+    echo -e "  ${CYAN}xcode-select --install${RESET}"
+    echo ""
+    echo -e "${YELLOW}After the installation completes, re-run this script.${RESET}"
+    exit 1
+fi
 success "git is available"
 
 # Ensure git-lfs is available (binary is tracked with LFS)

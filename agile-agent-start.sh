@@ -8,6 +8,33 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
+# ── Pre-flight: Xcode Command Line Tools ─────────────────────────────────
+# The agile-agent binary requires git (part of Xcode CLT) at runtime.
+# Without it, the binary crashes immediately with cryptic "command not found" errors.
+if ! command -v git &>/dev/null; then
+    echo -e "\033[0;31m✗\033[0m Xcode Command Line Tools are not installed."
+    echo -e "  Agile Agent requires \033[1mgit\033[0m which is included in the CLT."
+    echo ""
+    echo -e "  Installing now (a system dialog will appear)..."
+    xcode-select --install 2>/dev/null || true
+    echo ""
+    echo -e "  \033[1;33m⚠\033[0m After the installation completes, re-run this script:"
+    echo -e "    \033[2m$0\033[0m"
+    exit 1
+fi
+
+# Also verify git actually works (catches partial Xcode installs where the
+# binary exists but the xctoolchain is broken/missing)
+if ! git --version &>/dev/null; then
+    echo -e "\033[0;31m✗\033[0m git is installed but appears broken (missing Xcode toolchain)."
+    echo -e "  Try running:"
+    echo -e "    \033[2msudo xcode-select --reset\033[0m"
+    echo -e "    \033[2mxcode-select --install\033[0m"
+    echo ""
+    echo -e "  \033[1;33m⚠\033[0m After the installation completes, re-run this script."
+    exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 LABEL="com.agile-agent"
