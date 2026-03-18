@@ -8,6 +8,11 @@
 #   --uninstall   Remove Agile Agent and its LaunchAgent service
 #   --update      Pull latest version and restart
 # ─────────────────────────────────────────────────────────────────────────────
+
+# Wrap everything in main() so that bash reads the entire script from the pipe
+# before executing. This prevents child processes (like brew) from consuming
+# stdin bytes that bash hasn't processed yet — a classic curl|bash pitfall.
+main() {
 set -euo pipefail
 
 # ── Colors & helpers ─────────────────────────────────────────────────────────
@@ -423,3 +428,8 @@ ${GREEN}${BOLD}  ╰────────────────────
 if [[ "${CI:-}" != "true" && "${APP_LAUNCHED:-false}" != "true" ]]; then
     open "http://agileagent.localhost:${PORT}" 2>/dev/null || true
 fi
+
+}  # end main()
+
+# Run main — by this point bash has read the entire script from the pipe
+main "$@"
