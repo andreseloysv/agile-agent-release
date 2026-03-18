@@ -117,8 +117,8 @@ step "Downloading Agile Agent"
 if [[ -d "$INSTALL_DIR/.git" ]]; then
     info "Updating existing installation..."
     cd "$INSTALL_DIR"
-    git fetch origin main 2>/dev/null || true
-    git reset --hard origin/main 2>/dev/null || true
+    git fetch origin main < /dev/null 2>/dev/null || true
+    git reset --hard origin/main < /dev/null 2>/dev/null || true
     # ⚠️ DO NOT use `git clean` here — it deletes untracked user data!
     # Protected paths (NEVER delete):
     #   data/               — SQLite DB, memories, all user data
@@ -127,14 +127,14 @@ if [[ -d "$INSTALL_DIR/.git" ]]; then
     # Only remove specific known obsolete files:
     rm -f "$INSTALL_DIR/agile-agent" 2>/dev/null || true  # old single-binary symlink, re-created below
     # Pull LFS objects (binaries are stored in Git LFS)
-    git lfs pull 2>/dev/null || true
+    git lfs pull < /dev/null 2>/dev/null || true
     success "Updated to latest version"
 else
     info "Downloading to $INSTALL_DIR..."
-    git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"
+    git clone --depth 1 "$REPO_URL" "$INSTALL_DIR" < /dev/null
     cd "$INSTALL_DIR"
     # Pull LFS objects (binaries are stored in Git LFS)
-    git lfs pull 2>/dev/null || true
+    git lfs pull < /dev/null 2>/dev/null || true
     success "Downloaded successfully"
 fi
 
@@ -176,7 +176,7 @@ if head -1 "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null | grep -q "^version https://g
             [[ -x "$bp" ]] && BREW_PATH="$bp" && break
         done
         if [[ -n "$BREW_PATH" ]]; then
-            "$BREW_PATH" install git-lfs 2>/dev/null || true
+            "$BREW_PATH" install git-lfs < /dev/null 2>/dev/null || true
         fi
         # If brew didn't work, try ensure-deps
         if ! command -v git-lfs &>/dev/null && [[ -f "$INSTALL_DIR/scripts/ensure-deps.sh" ]]; then
@@ -187,8 +187,8 @@ if head -1 "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null | grep -q "^version https://g
 
     # Pull actual LFS objects
     cd "$INSTALL_DIR"
-    git lfs install 2>/dev/null || true
-    git lfs pull 2>/dev/null || true
+    git lfs install < /dev/null 2>/dev/null || true
+    git lfs pull < /dev/null 2>/dev/null || true
 
     # Re-check
     if head -1 "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null | grep -q "^version https://git-lfs"; then
