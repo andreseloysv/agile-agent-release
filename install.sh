@@ -129,16 +129,35 @@ fi
 
 cd "$INSTALL_DIR"
 
-# ── Step 3: Make binary executable ────────────────────────────────────────────
+# ── Step 3: Select and set up architecture-specific binary ────────────────
 step "Setting up binary"
 
-if [[ ! -f "$INSTALL_DIR/agile-agent" ]]; then
-    error "Binary not found in release. The release may be corrupted."
+ARCH=$(uname -m)
+if [[ "$ARCH" == "arm64" ]]; then
+    BINARY_NAME="agile-agent-arm64"
+elif [[ "$ARCH" == "x86_64" ]]; then
+    BINARY_NAME="agile-agent-x86_64"
+else
+    error "Unsupported architecture: $ARCH"
     exit 1
 fi
 
-chmod +x "$INSTALL_DIR/agile-agent"
-success "Binary ready ($(du -sh "$INSTALL_DIR/agile-agent" | cut -f1))"
+if [[ ! -f "$INSTALL_DIR/$BINARY_NAME" ]]; then
+    # Fallback: check for the old single-binary name (pre-universal builds)
+    if [[ -f "$INSTALL_DIR/agile-agent" ]]; then
+        BINARY_NAME="agile-agent"
+        warn "Using legacy single-architecture binary. Consider re-installing for best performance."
+    else
+        error "Binary not found for $ARCH in release. The release may be corrupted."
+        exit 1
+    fi
+fi
+
+chmod +x "$INSTALL_DIR/$BINARY_NAME"
+
+# Symlink to 'agile-agent' so LaunchAgent and scripts always find it
+ln -sf "$INSTALL_DIR/$BINARY_NAME" "$INSTALL_DIR/agile-agent"
+success "Binary ready for $ARCH ($(du -sh "$INSTALL_DIR/$BINARY_NAME" | cut -f1))"
 
 # ── Step 4: Create data directory ─────────────────────────────────────────────
 mkdir -p "$INSTALL_DIR/data"

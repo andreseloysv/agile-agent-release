@@ -1,1 +1,2 @@
-agile-agent filter=lfs diff=lfs merge=lfs -text
+agile-agent-arm64 filter=lfs diff=lfs merge=lfs -text
+agile-agent-x86_64 filter=lfs diff=lfs merge=lfs -text
