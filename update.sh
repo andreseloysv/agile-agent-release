@@ -33,10 +33,13 @@ fi
 git lfs install --local 2>>"$LOG" || true
 
 # Pull latest (quietly), forcing through any local changes
-git fetch --quiet origin main 2>>"$LOG" || { log "Network error, skipping."; exit 0; }
-git reset --hard origin/main --quiet 2>>"$LOG" || { log "Cannot reset to origin/main, skipping."; exit 0; }
+echo "Fetching latest from origin..."
+git fetch --quiet origin main 2>>"$LOG" || { log "Network error, skipping."; echo "❌ Network error. Check your connection."; exit 0; }
+echo "Applying updates..."
+git reset --hard origin/main --quiet 2>>"$LOG" || { log "Cannot reset to origin/main, skipping."; echo "❌ Cannot apply update."; exit 0; }
 
 # Pull LFS objects (binaries stored in Git LFS)
+echo "Downloading binaries (this may take a moment)..."
 git lfs pull 2>>"$LOG" || log "WARNING: git lfs pull failed"
 
 # ⚠️ DO NOT use `git clean -fd` here!
@@ -51,10 +54,12 @@ AFTER=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
 if [[ "$BEFORE" == "$AFTER" ]]; then
     log "Already up to date ($AFTER)."
+    echo "✅ Already up to date."
     exit 0
 fi
 
 log "Updated $BEFORE → $AFTER. Restarting service..."
+echo "✅ Updated! Restarting service..."
 
 # Graceful shutdown: check if the server is actively processing a request
 # by checking for an active WebSocket connection. If busy, wait up to 30s.
@@ -107,3 +112,4 @@ if [[ -f "$DMG_PATH" ]]; then
 fi
 
 log "Restart complete. Update done."
+echo "✅ Update complete!"
