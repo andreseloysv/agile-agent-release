@@ -101,7 +101,7 @@ success "git is available"
 # Download ensure-deps.sh if not available locally (first install)
 DEPS_SCRIPT="$INSTALL_DIR/scripts/ensure-deps.sh"
 if [[ ! -f "$DEPS_SCRIPT" ]]; then
-    DEPS_SCRIPT="$(mktemp /tmp/ensure-deps-XXXXXX.sh)"
+    DEPS_SCRIPT="$(mktemp /tmp/ensure-deps-XXXXXX)"
     curl -fsSL "https://raw.githubusercontent.com/andreseloysv/agile-agent-release/main/scripts/ensure-deps.sh" \
         -o "$DEPS_SCRIPT" 2>/dev/null || true
 fi
