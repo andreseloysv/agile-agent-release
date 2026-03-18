@@ -119,7 +119,13 @@ if [[ -d "$INSTALL_DIR/.git" ]]; then
     cd "$INSTALL_DIR"
     git fetch origin main 2>/dev/null || true
     git reset --hard origin/main 2>/dev/null || true
-    # NOTE: Do NOT run 'git clean -fd' — it deletes user data (SQLite DB, configs)
+    # ⚠️ DO NOT use `git clean` here — it deletes untracked user data!
+    # Protected paths (NEVER delete):
+    #   data/               — SQLite DB, memories, all user data
+    #   .env                — user environment config
+    #   *.db, *.db-wal, *.db-shm — SQLite files that may be at root
+    # Only remove specific known obsolete files:
+    rm -f "$INSTALL_DIR/agile-agent" 2>/dev/null || true  # old single-binary symlink, re-created below
     success "Updated to latest version"
 else
     info "Downloading to $INSTALL_DIR..."
