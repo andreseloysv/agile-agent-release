@@ -166,14 +166,37 @@ fi
 
 # Safety check: ensure the binary is real (not a Git LFS pointer)
 if head -1 "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null | grep -q "^version https://git-lfs"; then
-    error "Binary is a Git LFS pointer, not the actual file!"
-    info "This means git-lfs failed to download the binary."
-    info "Fix: install git-lfs, then re-pull:"
-    echo ""
-    echo -e "  ${CYAN}brew install git-lfs${RESET}"
-    echo -e "  ${CYAN}cd $INSTALL_DIR && git lfs install && git lfs pull${RESET}"
-    echo ""
-    exit 1
+    warn "Binary is a Git LFS pointer — downloading actual binary..."
+
+    # Auto-install git-lfs if missing
+    if ! command -v git-lfs &>/dev/null; then
+        info "Installing git-lfs..."
+        BREW_PATH=""
+        for bp in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+            [[ -x "$bp" ]] && BREW_PATH="$bp" && break
+        done
+        if [[ -n "$BREW_PATH" ]]; then
+            "$BREW_PATH" install git-lfs 2>/dev/null || true
+        fi
+        # If brew didn't work, try ensure-deps
+        if ! command -v git-lfs &>/dev/null && [[ -f "$INSTALL_DIR/scripts/ensure-deps.sh" ]]; then
+            source "$INSTALL_DIR/scripts/ensure-deps.sh"
+            ensure_git_lfs || true
+        fi
+    fi
+
+    # Pull actual LFS objects
+    cd "$INSTALL_DIR"
+    git lfs install 2>/dev/null || true
+    git lfs pull 2>/dev/null || true
+
+    # Re-check
+    if head -1 "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null | grep -q "^version https://git-lfs"; then
+        error "Still a Git LFS pointer after auto-fix attempt."
+        info "Manual fix: brew install git-lfs && cd $INSTALL_DIR && git lfs install && git lfs pull"
+        exit 1
+    fi
+    success "Binary downloaded via Git LFS"
 fi
 
 chmod +x "$INSTALL_DIR/$BINARY_NAME"
