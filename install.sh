@@ -126,10 +126,15 @@ if [[ -d "$INSTALL_DIR/.git" ]]; then
     #   *.db, *.db-wal, *.db-shm — SQLite files that may be at root
     # Only remove specific known obsolete files:
     rm -f "$INSTALL_DIR/agile-agent" 2>/dev/null || true  # old single-binary symlink, re-created below
+    # Pull LFS objects (binaries are stored in Git LFS)
+    git lfs pull 2>/dev/null || true
     success "Updated to latest version"
 else
     info "Downloading to $INSTALL_DIR..."
     git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"
+    cd "$INSTALL_DIR"
+    # Pull LFS objects (binaries are stored in Git LFS)
+    git lfs pull 2>/dev/null || true
     success "Downloaded successfully"
 fi
 
@@ -157,6 +162,18 @@ if [[ ! -f "$INSTALL_DIR/$BINARY_NAME" ]]; then
         error "Binary not found for $ARCH in release. The release may be corrupted."
         exit 1
     fi
+fi
+
+# Safety check: ensure the binary is real (not a Git LFS pointer)
+if head -1 "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null | grep -q "^version https://git-lfs"; then
+    error "Binary is a Git LFS pointer, not the actual file!"
+    info "This means git-lfs failed to download the binary."
+    info "Fix: install git-lfs, then re-pull:"
+    echo ""
+    echo -e "  ${CYAN}brew install git-lfs${RESET}"
+    echo -e "  ${CYAN}cd $INSTALL_DIR && git lfs install && git lfs pull${RESET}"
+    echo ""
+    exit 1
 fi
 
 chmod +x "$INSTALL_DIR/$BINARY_NAME"
