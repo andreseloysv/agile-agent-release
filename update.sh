@@ -20,9 +20,24 @@ cd "$INSTALL_DIR" || { log "Install dir not found, skipping."; exit 0; }
 # Capture current commit before pulling
 BEFORE=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
+# Remove stale index.lock from crashed git processes
+rm -f "$INSTALL_DIR/.git/index.lock" 2>/dev/null || true
+
+# Ensure git-lfs is available (needed for binary files like the server binary)
+if ! command -v git-lfs &>/dev/null && ! git lfs version &>/dev/null 2>&1; then
+    if command -v brew &>/dev/null; then
+        log "Installing git-lfs..."
+        brew install git-lfs </dev/null 2>>"$LOG" || true
+    fi
+fi
+git lfs install --local 2>>"$LOG" || true
+
 # Pull latest (quietly), forcing through any local changes
 git fetch --quiet origin main 2>>"$LOG" || { log "Network error, skipping."; exit 0; }
 git reset --hard origin/main --quiet 2>>"$LOG" || { log "Cannot reset to origin/main, skipping."; exit 0; }
+
+# Pull LFS objects (binaries stored in Git LFS)
+git lfs pull 2>>"$LOG" || log "WARNING: git lfs pull failed"
 
 # ⚠️ DO NOT use `git clean -fd` here!
 # The install dir contains untracked user data:
