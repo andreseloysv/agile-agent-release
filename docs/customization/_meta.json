@@ -1,0 +1,6 @@
+{
+  "label": "Customization",
+  "icon": "paintbrush",
+  "order": 5,
+  "pages": ["custom-agents", "custom-tools", "avatars"]
+}

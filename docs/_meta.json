@@ -1,0 +1,11 @@
+{
+  "label": "Documentation",
+  "sections": [
+    { "slug": "getting-started", "label": "Getting Started", "icon": "rocket", "order": 1 },
+    { "slug": "core-concepts", "label": "Core Concepts", "icon": "gear", "order": 2 },
+    { "slug": "features", "label": "Features", "icon": "sparkles", "order": 3 },
+    { "slug": "integrations", "label": "Integrations", "icon": "chain", "order": 4 },
+    { "slug": "customization", "label": "Customization", "icon": "paintbrush", "order": 5 },
+    { "slug": "api-reference", "label": "API Reference", "icon": "terminal", "order": 6 }
+  ]
+}

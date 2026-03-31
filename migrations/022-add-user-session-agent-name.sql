@@ -1,0 +1,1 @@
+ALTER TABLE user_sessions ADD COLUMN agent_name TEXT DEFAULT NULL;

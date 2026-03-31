@@ -1,0 +1,6 @@
+{
+  "label": "Getting Started",
+  "icon": "rocket",
+  "order": 1,
+  "pages": ["installation", "first-run", "configuration"]
+}

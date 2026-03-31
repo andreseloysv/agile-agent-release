@@ -1,0 +1,6 @@
+{
+  "label": "Integrations",
+  "icon": "chain",
+  "order": 4,
+  "pages": ["gitlab", "jira", "confluence", "jsm", "mcp"]
+}

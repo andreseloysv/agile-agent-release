@@ -102,18 +102,6 @@ if ! git --version &>/dev/null; then
 fi
 success "git is available"
 
-# Ensure git-lfs is available (binary is tracked with LFS)
-# Download ensure-deps.sh if not available locally (first install)
-DEPS_SCRIPT="$INSTALL_DIR/scripts/ensure-deps.sh"
-if [[ ! -f "$DEPS_SCRIPT" ]]; then
-    DEPS_SCRIPT="$(mktemp /tmp/ensure-deps-XXXXXX)"
-    curl -fsSL "https://raw.githubusercontent.com/andreseloysv/agile-agent-release/main/scripts/ensure-deps.sh" \
-        -o "$DEPS_SCRIPT" 2>/dev/null || true
-fi
-if [[ -f "$DEPS_SCRIPT" ]]; then
-    source "$DEPS_SCRIPT"
-    ensure_git_lfs || true
-fi
 success "Prerequisites checked"
 
 # ── Step 2: Download or update release ────────────────────────────────────────
@@ -131,15 +119,13 @@ if [[ -d "$INSTALL_DIR/.git" ]]; then
     #   *.db, *.db-wal, *.db-shm — SQLite files that may be at root
     # Only remove specific known obsolete files:
     rm -f "$INSTALL_DIR/agile-agent" 2>/dev/null || true  # old single-binary symlink, re-created below
-    # Pull LFS objects (binaries are stored in Git LFS)
-    git lfs pull < /dev/null 2>/dev/null || true
+    # (Binaries are now downloaded from GitHub Releases, not Git LFS)
     success "Updated to latest version"
 else
     info "Downloading to $INSTALL_DIR..."
     git clone --depth 1 "$REPO_URL" "$INSTALL_DIR" < /dev/null
     cd "$INSTALL_DIR"
-    # Pull LFS objects (binaries are stored in Git LFS)
-    git lfs pull < /dev/null 2>/dev/null || true
+    # (Binaries are now downloaded from GitHub Releases, not Git LFS)
     success "Downloaded successfully"
 fi
 
@@ -158,51 +144,17 @@ else
     exit 1
 fi
 
-if [[ ! -f "$INSTALL_DIR/$BINARY_NAME" ]]; then
-    # Fallback: check for the old single-binary name (pre-universal builds)
-    if [[ -f "$INSTALL_DIR/agile-agent" ]]; then
-        BINARY_NAME="agile-agent"
-        warn "Using legacy single-architecture binary. Consider re-installing for best performance."
-    else
-        error "Binary not found for $ARCH in release. The release may be corrupted."
-        exit 1
-    fi
-fi
+info "Downloading $BINARY_NAME from GitHub Releases..."
+curl -L --fail -# "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/$BINARY_NAME" -o "$INSTALL_DIR/$BINARY_NAME" || {
+    error "Failed to download $BINARY_NAME. The release might not be available."
+    exit 1
+}
 
-# Safety check: ensure the binary is real (not a Git LFS pointer)
-if head -1 "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null | grep -q "^version https://git-lfs"; then
-    warn "Binary is a Git LFS pointer — downloading actual binary..."
-
-    # Auto-install git-lfs if missing
-    if ! command -v git-lfs &>/dev/null; then
-        info "Installing git-lfs..."
-        BREW_PATH=""
-        for bp in /opt/homebrew/bin/brew /usr/local/bin/brew; do
-            [[ -x "$bp" ]] && BREW_PATH="$bp" && break
-        done
-        if [[ -n "$BREW_PATH" ]]; then
-            "$BREW_PATH" install git-lfs < /dev/null 2>/dev/null || true
-        fi
-        # If brew didn't work, try ensure-deps
-        if ! command -v git-lfs &>/dev/null && [[ -f "$INSTALL_DIR/scripts/ensure-deps.sh" ]]; then
-            source "$INSTALL_DIR/scripts/ensure-deps.sh"
-            ensure_git_lfs || true
-        fi
-    fi
-
-    # Pull actual LFS objects
-    cd "$INSTALL_DIR"
-    git lfs install < /dev/null 2>/dev/null || true
-    git lfs pull < /dev/null 2>/dev/null || true
-
-    # Re-check
-    if head -1 "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null | grep -q "^version https://git-lfs"; then
-        error "Still a Git LFS pointer after auto-fix attempt."
-        info "Manual fix: brew install git-lfs && cd $INSTALL_DIR && git lfs install && git lfs pull"
-        exit 1
-    fi
-    success "Binary downloaded via Git LFS"
-fi
+# Also pull additional assets here if we are on mac
+info "Downloading additional release assets..."
+curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/copilot-bridge.vsix" -o "$INSTALL_DIR/copilot-bridge.vsix" || true
+# 'Agile Agent.dmg' has a space, make sure to use %20 when downloading via curl
+curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/Agile%20Agent.dmg" -o "$INSTALL_DIR/Agile Agent.dmg" || true
 
 chmod +x "$INSTALL_DIR/$BINARY_NAME"
 

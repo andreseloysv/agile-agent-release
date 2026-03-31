@@ -1,0 +1,6 @@
+{
+  "label": "Features",
+  "icon": "sparkles",
+  "order": 3,
+  "pages": ["code-review", "story-generation", "blast-radius", "agent-builder", "cron-scheduler", "agent-to-agent"]
+}

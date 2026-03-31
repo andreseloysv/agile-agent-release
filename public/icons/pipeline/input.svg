@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="40" height="40">
+  <!--! Input node — arrow entering a box (blue) -->
+  <path fill="#3B82F6" d="M448 80v352c0 26.5-21.5 48-48 48H112c-26.5 0-48-21.5-48-48V80c0-26.5 21.5-48 48-48h288c26.5 0 48 21.5 48 48zm-48 346V86c0-3.3-2.7-6-6-6H118c-3.3 0-6 2.7-6 6v340c0 3.3 2.7 6 6 6h276c3.3 0 6-2.7 6-6z"/>
+  <path fill="#3B82F6" d="M336 256l-112-80v56H128v48h96v56l112-80z"/>
+</svg>

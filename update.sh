@@ -23,14 +23,7 @@ BEFORE=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 # Remove stale index.lock from crashed git processes
 rm -f "$INSTALL_DIR/.git/index.lock" 2>/dev/null || true
 
-# Ensure git-lfs is available (needed for binary files like the server binary)
-if ! command -v git-lfs &>/dev/null && ! git lfs version &>/dev/null 2>&1; then
-    if command -v brew &>/dev/null; then
-        log "Installing git-lfs..."
-        brew install git-lfs </dev/null 2>>"$LOG" || true
-    fi
-fi
-git lfs install --local 2>>"$LOG" || true
+# Git LFS is no longer required as binaries are pulled from GitHub Releases directly
 
 # Pull latest (quietly), forcing through any local changes
 echo "Fetching latest from origin..."
@@ -38,9 +31,15 @@ git fetch --quiet origin main 2>>"$LOG" || { log "Network error, skipping."; ech
 echo "Applying updates..."
 git reset --hard origin/main --quiet 2>>"$LOG" || { log "Cannot reset to origin/main, skipping."; echo "❌ Cannot apply update."; exit 0; }
 
-# Pull LFS objects (binaries stored in Git LFS)
-echo "Downloading binaries (this may take a moment)..."
-git lfs pull 2>>"$LOG" || log "WARNING: git lfs pull failed"
+# Download updated binaries from GitHub Releases
+echo "Downloading latest binaries..."
+ARCH=$(uname -m)
+if [[ "$ARCH" == "arm64" ]]; then BINARY_NAME="agile-agent-arm64"; else BINARY_NAME="agile-agent-x86_64"; fi
+curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/$BINARY_NAME" -o "$INSTALL_DIR/$BINARY_NAME" || log "WARNING: Failed to download $BINARY_NAME"
+chmod +x "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null || true
+
+curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/Agile%20Agent.dmg" -o "$INSTALL_DIR/Agile Agent.dmg" || true
+curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/copilot-bridge.vsix" -o "$INSTALL_DIR/copilot-bridge.vsix" || true
 
 # ⚠️ DO NOT use `git clean -fd` here!
 # The install dir contains untracked user data:

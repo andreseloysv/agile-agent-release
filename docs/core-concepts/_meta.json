@@ -1,0 +1,6 @@
+{
+  "label": "Core Concepts",
+  "icon": "gear",
+  "order": 2,
+  "pages": ["architecture", "agent-pipeline", "intents", "agent-workflows", "tools"]
+}
