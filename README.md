@@ -6,7 +6,7 @@ AI-powered code review agent with multi-project support, long-term memory, and w
 
 **Option A — Clickable installer** (no Terminal needed):
 
-Download **[Agile Agent.dmg](./Agile%20Agent.dmg)**, open it, and drag the app to Applications.
+Download **[Agile Agent.dmg](https://github.com/andreseloysv/agile-agent-release/releases/latest/download/Agile.Agent.dmg)**, open it, and drag the app to Applications.
 > First time: right-click → Open to bypass Gatekeeper.
 
 **Option B — One-line terminal command:**

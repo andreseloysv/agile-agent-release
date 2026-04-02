@@ -38,7 +38,7 @@ if [[ "$ARCH" == "arm64" ]]; then BINARY_NAME="agile-agent-arm64"; else BINARY_N
 curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/$BINARY_NAME" -o "$INSTALL_DIR/$BINARY_NAME" || log "WARNING: Failed to download $BINARY_NAME"
 chmod +x "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null || true
 
-curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/Agile%20Agent.dmg" -o "$INSTALL_DIR/Agile Agent.dmg" || true
+curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/Agile.Agent.dmg" -o "$INSTALL_DIR/Agile Agent.dmg" || true
 curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/copilot-bridge.vsix" -o "$INSTALL_DIR/copilot-bridge.vsix" || true
 
 # ⚠️ DO NOT use `git clean -fd` here!

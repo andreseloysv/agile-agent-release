@@ -153,8 +153,8 @@ curl -L --fail -# "https://github.com/andreseloysv/agile-agent-release/releases/
 # Also pull additional assets here if we are on mac
 info "Downloading additional release assets..."
 curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/copilot-bridge.vsix" -o "$INSTALL_DIR/copilot-bridge.vsix" || true
-# 'Agile Agent.dmg' has a space, make sure to use %20 when downloading via curl
-curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/Agile%20Agent.dmg" -o "$INSTALL_DIR/Agile Agent.dmg" || true
+# GitHub Releases converts spaces to dots in asset names, so the DMG is served as 'Agile.Agent.dmg'
+curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/Agile.Agent.dmg" -o "$INSTALL_DIR/Agile Agent.dmg" || true
 
 chmod +x "$INSTALL_DIR/$BINARY_NAME"
 
