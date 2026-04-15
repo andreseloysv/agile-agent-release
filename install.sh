@@ -104,6 +104,13 @@ success "git is available"
 
 success "Prerequisites checked"
 
+# ── Step 1b: Homebrew pre-flight (optional, for Local AI support) ─────────────
+if command -v brew &>/dev/null; then
+    success "Homebrew is available (Local AI via Ollama supported)"
+else
+    info "Homebrew not found — Local AI (Ollama) will auto-install it on first use"
+fi
+
 # ── Step 2: Download or update release ────────────────────────────────────────
 step "Downloading Agile Agent"
 

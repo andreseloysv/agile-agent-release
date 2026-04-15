@@ -28,7 +28,7 @@ graph TD
 |------|------|-------------|
 | 1 | `fetch_jira_ticket` | Fetch and analyze target ticket requirements |
 | 2 | `clone_repo` | Clone the repository (`includeHistory=true`) |
-| 3 | `grep_search` / `read_file` | Research codebase: patterns, architecture, relevant files |
+| 3 | `grep_tool` / `read_file` | Research codebase: patterns, architecture, relevant files |
 | 4 | `create_branch` | Create a feature branch from develop |
 | 5 | `edit_file` / `write_file` | Apply code changes |
 | 6 | `execute_script` | Run tests and verify changes |
@@ -58,7 +58,7 @@ graph LR
 
 For cross-branch tasks, a pre-planning **analysis agent** runs before the Orchestrator creates the plan:
 
-- Uses **read-only** tools: `read_file`, `read_files`, `find_files`, `grep_search`, `list_directory`, `file_outline`
+- Uses **read-only** tools: `read_file`, `read_files`, `glob_tool`, `grep_tool`, `list_directory`, `file_outline`
 - Runs up to **8 LLM iterations** with tool calls
 - Produces structured output: Task Understanding → Diff Analysis → New Scenarios → Extraction Plan → Risks
 - All file paths are guardrailed to the clone directory
@@ -69,7 +69,7 @@ For cross-branch tasks, a pre-planning **analysis agent** runs before the Orches
 |----------|-------|
 | **Jira** | `create_jira_subtask`, `transition_jira_ticket`, `create_jsm_request` |
 | **Repo** | `clone_repo`, `run_git`, `parse_branch_diff` |
-| **Code Read** | `read_file`, `read_files`, `find_files`, `grep_search`, `list_directory`, `get_symbol_references`, `file_outline` |
+| **Code Read** | `read_file`, `read_files`, `glob_tool`, `grep_tool`, `list_directory`, `get_symbol_references`, `file_outline` |
 | **Code Write** | `edit_file`, `write_file` |
 | **Git Ops** | `create_branch`, `commit_files`, `create_merge_request` |
 | **Exec** | `execute_script` |
@@ -94,7 +94,7 @@ Uses a 6-pass **transformer pipeline** for large MR diffs.
 | 5 | DependencyAnalyzer | Group files for context |
 | 6 | ReportAssembler | Merge all results into final report |
 
-**Tools:** `read_file`, `read_files`, `file_outline`, `grep_search`, `get_symbol_references`
+**Tools:** `read_file`, `read_files`, `file_outline`, `grep_tool`, `get_symbol_references`
 
 ---
 
@@ -107,7 +107,7 @@ graph LR
     T1["fetch_jira_ticket_tree"] --> T4
     T2["find_merge_request"] --> T3["get_mr_diff"]
     T3b["clone_repo"] --> T3c
-    T3 --> T3c["grep_search<br/><small>Validate key identifiers</small>"]
+    T3 --> T3c["grep_tool<br/><small>Validate key identifiers</small>"]
     T1 --> T4["Read Confluence<br/><small>+ code context</small>"]
     T3 --> T4
     T1 --> T5
@@ -126,7 +126,7 @@ Template-based 4-step pipeline:
 |------|------|-------------|
 | 1 | `fetch_jira_ticket` | Fetch the ticket data |
 | 2 | `fetch_jira_ticket_tree` | Get full tree: parent, children, linked stories |
-| 3 | `clone_repo` + `grep_search` | Gather code evidence for review |
+| 3 | `clone_repo` + `grep_tool` | Gather code evidence for review |
 | 4 | — | Produce structured review (DoR, INVEST, Quality Score) |
 
 ---

@@ -15,6 +15,17 @@ Tools are the actions an agent can perform. Each tool implements the `IToolProvi
 | `GitLabCommentTool` | `gitlab_comment` | Post inline and general comments on MRs |
 | `GitLabWriteTool` | `gitlab_write` | Create or update files in GitLab |
 
+### GitHub Tools
+
+| Tool | Name | Description |
+|------|------|-------------|
+| `GitHubSearchTool` | `github_search` | Search code across repositories |
+| `GitHubFileTool` | `github_file` | Read file contents from any branch |
+| `GitHubDiffTool` | `github_diff` | Fetch MR diffs |
+| `GitHubMRTool` | `github_mr` | Get MR metadata (title, description, reviewers) |
+| `GitHubCommentTool` | `github_comment` | Post inline and general comments on MRs |
+| `GitHubWriteTool` | `github_write` | Create or update files in GitHub |
+
 ### Jira Tools
 
 | Tool | Name | Description |
@@ -85,7 +96,7 @@ Custom tools are sandboxed — the compiler blocks access to filesystem, child p
 ## Adding a New Tool
 
 ```typescript
-import type { IToolProvider, ToolDeclaration, ToolResult } from '../IToolProvider.js';
+import type { IToolProvider, ToolDeclaration, ToolResult } from '../IToolProvider.ts';
 
 export class MyTool implements IToolProvider {
     readonly name = 'my_tool';

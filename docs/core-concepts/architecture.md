@@ -26,6 +26,7 @@ graph TB
 
     subgraph Services["External Services"]
         GL[GitLab]
+        GH[GitHub]
         JR[Jira]
         CF[Confluence]
         LLM["VS Code Bridge (Copilot API)"]
