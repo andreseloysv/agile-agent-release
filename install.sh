@@ -29,7 +29,7 @@ INSTALL_DIR="${AGILE_AGENT_HOME:-$HOME/.agile-agent}"
 REPO_URL="https://github.com/andreseloysv/agile-agent-release.git"
 PLIST_NAME="com.agile-agent"
 PLIST_PATH="$HOME/Library/LaunchAgents/${PLIST_NAME}.plist"
-PORT=4372
+PORT=4373
 
 info()    { echo -e "${BLUE}▸${RESET} $1"; }
 success() { echo -e "${GREEN}✔${RESET} $1"; }
@@ -198,6 +198,8 @@ cat > "$PLIST_PATH" <<EOF
   <dict>
     <key>AGILE_AGENT_HOME</key><string>${INSTALL_DIR}</string>
     <key>AGILE_AGENT_STATIC</key><string>${INSTALL_DIR}/public</string>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HOME</key><string>${HOME}</string>
   </dict>
   <key>RunAtLoad</key><false/>
   <key>KeepAlive</key><false/>
@@ -266,19 +268,33 @@ success "Auto-updater installed (runs at login + every hour)"
 # ── Step 6: Wait for server to be ready ───────────────────────────────────────
 step "Starting Agile Agent"
 
-info "Waiting for server to be ready..."
+# Give launchd a moment to actually fork the process after `launchctl start`
+sleep 2
+
+info "Waiting for server to be ready on port ${PORT}..."
+SERVER_READY=false
 for i in {1..30}; do
-    if curl -sf "http://localhost:${PORT}" >/dev/null 2>&1; then
+    if curl -sf "http://localhost:${PORT}/api/health" >/dev/null 2>&1 || \
+       curl -sf "http://localhost:${PORT}" >/dev/null 2>&1; then
+        SERVER_READY=true
         break
     fi
+    printf "."
     sleep 1
 done
+echo
 
-if curl -sf "http://localhost:${PORT}" >/dev/null 2>&1; then
+if [[ "$SERVER_READY" == "true" ]]; then
     success "Server is running on http://agileagent.localhost:${PORT}"
 else
-    warn "Server is starting up — it may take a few more seconds"
-    info "Check logs: ${DIM}cat /tmp/agile-agent.log${RESET}"
+    warn "Server did not respond within 32 seconds."
+    info "The server may still be starting up. To diagnose:"
+    echo -e "  ${DIM}# Check if the process is running:${RESET}"
+    echo -e "  ${CYAN}launchctl list ${PLIST_NAME}${RESET}"
+    echo -e "  ${DIM}# Watch the live log:${RESET}"
+    echo -e "  ${CYAN}tail -f /tmp/agile-agent.log${RESET}"
+    echo -e "  ${DIM}# Check for errors:${RESET}"
+    echo -e "  ${CYAN}cat /tmp/agile-agent.err${RESET}"
 fi
 
 # ── Step 7: Install VS Code Copilot Bridge extension ─────────────────────────
@@ -372,7 +388,7 @@ ${GREEN}${BOLD}  │                                                         │
 ${GREEN}${BOLD}  │  Open:   ${RESET}${CYAN}http://agileagent.localhost:${PORT}${GREEN}${BOLD}               │${RESET}
 ${GREEN}${BOLD}  │                                                         │${RESET}
 ${GREEN}${BOLD}  │  No Node.js needed — runs as a native binary.           │${RESET}
-${GREEN}${BOLD}  │  Does NOT start automatically on boot.                  │${RESET}
+${GREEN}${BOLD}  │  Does NOT restart on boot (manual start required).      │${RESET}
 ${GREEN}${BOLD}  │                                                         │${RESET}
 ${GREEN}${BOLD}  │  Commands:                                              │${RESET}
 ${GREEN}${BOLD}  │    Start:      ${RESET}${DIM}~/.agile-agent/agile-agent-start.sh${GREEN}${BOLD}     │${RESET}

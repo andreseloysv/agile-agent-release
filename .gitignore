@@ -1,13 +1,8 @@
-# User data — NEVER delete during updates
 data/
 *.db
 *.db-wal
 *.db-shm
 .env
-
-# Logs
 *.log
 *.err
-
-# macOS
 .DS_Store
