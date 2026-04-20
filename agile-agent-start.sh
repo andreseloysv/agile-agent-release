@@ -47,6 +47,13 @@ RED='\033[0;31m'
 YELLOW='\033[0;33m'
 NC='\033[0m'
 
+# Add common PATHs for non-interactive shells
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.bun/bin:$PATH"
+if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
+    export NVM_DIR="$HOME/.nvm"
+    \. "$NVM_DIR/nvm.sh"
+fi
+
 # Detect mode: dev (repo with package.json) vs production (LaunchAgent)
 is_dev() {
     [[ -f "$REPO_ROOT/package.json" ]] && grep -q '"agile-agent"' "$REPO_ROOT/package.json" 2>/dev/null
