@@ -69,7 +69,28 @@ Update tool configuration parameters (e.g., set `jsm_url` for the JSM tool).
 claude mcp add agile-agent http://localhost:4372/api/mcp
 ```
 
-### Cursor / VS Code
+### VS Code (GitHub Copilot agent mode)
+
+The **Agile Agent — Copilot Bridge** extension (installed by the installer) registers the
+Agile Agent MCP server with VS Code automatically. Open Copilot Chat in **Agent** mode,
+click the tools icon, and enable the **Agile Agent** server — no manual configuration needed.
+
+If Agile Agent runs on a non-default port, set `agileAgent.serverPort` in VS Code settings.
+
+Without the extension, add the server manually in `.vscode/mcp.json` (or via *MCP: Open User Configuration*):
+
+```json
+{
+  "servers": {
+    "agile-agent": {
+      "type": "http",
+      "url": "http://localhost:4372/api/mcp"
+    }
+  }
+}
+```
+
+### Cursor
 
 Add to your MCP configuration:
 
