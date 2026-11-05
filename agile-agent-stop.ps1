@@ -1,21 +1,18 @@
-$ErrorActionPreference = 'SilentlyContinue'
-$port = 4372
+# agile-agent-stop.ps1 — stop the Agile Agent server started from this folder.
+# Stops only our own server process (by PID file / executable path), never other programs on the port.
 
-$listening = netstat -ano | findstr ":$port "
-if (-not $listening) {
-    Write-Host "Agile Agent is not running on port $port"
-    exit 0
-}
+$InstallDir = $PSScriptRoot
+$exe = Join-Path $InstallDir 'agile-agent-service.exe'
+$pidFile = Join-Path $InstallDir 'data\server.pid'
+$stopped = $false
 
-# The PID is the last token on the netstat line
-$lines = $listening -split "`r`n"
-foreach ($line in $lines) {
-    if ([string]::IsNullOrWhiteSpace($line)) { continue }
-    $tokens = -split $line
-    $pidStr = $tokens[$tokens.Length - 1]
-    if ($pidStr -match "^\d+$") {
-        Write-Host "Stopping process ID $pidStr..."
-        Stop-Process -Id $pidStr -Force
-    }
+if (Test-Path -LiteralPath $pidFile) {
+    $p = Get-Process -Id ([int](Get-Content -LiteralPath $pidFile | Select-Object -First 1)) -ErrorAction SilentlyContinue
+    if ($p -and $p.Path -eq $exe) { Stop-Process -Id $p.Id -Force; $stopped = $true }
+    Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
 }
-Write-Host "Stopped Agile Agent."
+Get-Process -Name 'agile-agent-service' -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe } |
+    ForEach-Object { Stop-Process -Id $_.Id -Force; $stopped = $true }
+Remove-Item -LiteralPath (Join-Path $InstallDir 'data\server.port') -Force -ErrorAction SilentlyContinue
+
+if ($stopped) { Write-Host 'Agile Agent stopped.' } else { Write-Host 'Agile Agent was not running.' }

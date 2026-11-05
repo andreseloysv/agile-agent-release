@@ -1,38 +1,40 @@
-$ErrorActionPreference = "Stop"
+# build-windows-app.ps1 — compile the Agile Agent tray launcher (AgileAgent.cs)
+# with the C# compiler that ships with the .NET Framework on every Windows 10/11.
+# No Bun / Node / Visual Studio needed. The icon is the committed scripts\icon.ico.
 
-$repoRoot = Split-Path -Parent $PSScriptRoot
-$cscPath = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
-
-if (-not (Test-Path $cscPath)) {
-    Write-Host "C# Compiler not found at $cscPath" -ForegroundColor Red
-    exit 1
-}
-
-$cscArgs = @(
-    "/target:winexe",
-    "/out:`"$repoRoot\Agile Agent.exe`""
+param(
+    [string]$OutPath = ''
 )
 
-# Generate icon.ico from icon.png (zero-dependency, Node built-ins only)
-$generateIcoScript = "$repoRoot\scripts\generate-ico.cjs"
-$iconPath = "$repoRoot\scripts\icon.ico"
-if (Test-Path $generateIcoScript) {
-    Write-Host "Generating icon.ico from icon.png..."
-    bun $generateIcoScript
-}
-if (Test-Path $iconPath) {
-    $cscArgs += "/win32icon:`"$iconPath`""
-}
+$ErrorActionPreference = 'Stop'
 
+$scriptsDir = $PSScriptRoot
+$repoRoot = Split-Path -Parent $scriptsDir
+if (-not $OutPath) { $OutPath = Join-Path $repoRoot 'Agile Agent.exe' }
 
-$cscArgs += "`"$repoRoot\scripts\AgileAgent.cs`""
-
-Write-Host "Compiling Agile Agent.exe native Windows launcher..."
-$process = Start-Process -FilePath $cscPath -ArgumentList $cscArgs -NoNewWindow -Wait -PassThru
-
-if ($process.ExitCode -ne 0) {
-    Write-Host "Compilation failed" -ForegroundColor Red
-    exit $process.ExitCode
+$csc = @(
+    (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'),
+    (Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe')
+) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if (-not $csc) {
+    throw 'C# compiler (csc.exe) from the .NET Framework 4 was not found'
 }
 
-Write-Host "Successfully built Agile Agent.exe!" -ForegroundColor Green
+$source = Join-Path $scriptsDir 'AgileAgent.cs'
+$icon = Join-Path $scriptsDir 'icon.ico'
+$tmpOut = "$OutPath.build"
+Remove-Item -LiteralPath $tmpOut -Force -ErrorAction SilentlyContinue
+
+$cscArgs = @('/nologo', '/target:winexe', '/optimize+', "/out:$tmpOut")
+if (Test-Path -LiteralPath $icon) { $cscArgs += "/win32icon:$icon" }
+$cscArgs += $source
+
+Write-Host 'Compiling Agile Agent.exe (native Windows launcher)...'
+& $csc @cscArgs
+if ($LASTEXITCODE -ne 0) {
+    Remove-Item -LiteralPath $tmpOut -Force -ErrorAction SilentlyContinue
+    throw "Compilation failed (csc exit code $LASTEXITCODE)"
+}
+# Replace only after a successful build (the old launcher keeps working if compilation fails)
+Move-Item -LiteralPath $tmpOut -Destination $OutPath -Force
+Write-Host "Built $OutPath" -ForegroundColor Green

@@ -25,7 +25,7 @@ namespace AgileAgent
             {
                 switch (key)
                 {
-                    case "InstallPrompt": return "Dadurch wird der Agile Agent installiert bzw. aktualisiert.\n\nDabei werden die notwendigen Komponenten (Git, Bun) geprüft, Updates heruntergeladen, kompiliert und der Hintergrunddienst gestartet.\n\nZielverzeichnis: {0}\n\nMöchten Sie fortfahren?";
+                    case "InstallPrompt": return "Dadurch wird der Agile Agent installiert bzw. aktualisiert.\n\nDabei werden die aktuelle Version heruntergeladen, der Starter erstellt und der Hintergrunddienst gestartet. Ihre Daten bleiben erhalten.\n\nZielverzeichnis: {0}\n\nMöchten Sie fortfahren?";
                     case "InstallTitle": return "Agile Agent Setup";
                     case "InstallSuccess": return "Agile Agent wurde erfolgreich installiert und läuft jetzt in Ihrer Taskleiste!";
                     case "InstallComplete": return "Installation abgeschlossen";
@@ -57,7 +57,7 @@ namespace AgileAgent
             
             switch (key)
             {
-                case "InstallPrompt": return "This will install or update Agile Agent on your computer.\n\nIt will check for necessary components (Git, Bun), download updates, build the application, and start the background service.\n\nTarget directory: {0}\n\nDo you wish to continue?";
+                case "InstallPrompt": return "This will install or update Agile Agent on your computer.\n\nIt will download the latest version, build the launcher and start the background service. Your data is kept.\n\nTarget directory: {0}\n\nDo you wish to continue?";
                 case "InstallTitle": return "Agile Agent Setup";
                 case "InstallSuccess": return "Agile Agent has been installed successfully and is now running in your system tray!";
                 case "InstallComplete": return "Installation Complete";
@@ -120,10 +120,10 @@ namespace AgileAgent
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
 
-                string installDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".agile-agent");
+                string installDir = InstallDir;
                 string currentExe = Application.ExecutablePath;
                 string targetExe = Path.Combine(installDir, "Agile Agent.exe");
-                string baseUrl = "http://127.0.0.1:4372/";
+                string baseUrl = BaseUrl();
 
                 // Allow force-tray mode or running from install path
                 bool forceTray = false;
@@ -139,7 +139,7 @@ namespace AgileAgent
 
                     if (result == DialogResult.Yes)
                     {
-                        RunInstaller(installDir, currentExe, targetExe);
+                        RunInstaller();
                     }
                     else if (File.Exists(targetExe))
                     {
@@ -178,206 +178,56 @@ namespace AgileAgent
             }
         }
 
-        static bool IsGitInstalled()
+        public const string InstallScriptUrl = "https://raw.githubusercontent.com/andreseloysv/agile-agent-release/main/install.ps1";
+
+        public static string InstallDir
         {
-            try
-            {
-                ProcessStartInfo psi = new ProcessStartInfo
-                {
-                    FileName = "git",
-                    Arguments = "--version",
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false
-                };
-                Process p = Process.Start(psi);
-                p.WaitForExit(3000);
-                return p.ExitCode == 0;
-            }
-            catch { return false; }
+            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".agile-agent"); }
         }
 
-        static bool InstallGitViaWinget()
+        /// <summary>Port the server really listens on (it writes data\server.port; it moves up if 4372 is busy).</summary>
+        public static int ReadPort()
         {
             try
             {
+                string portFile = Path.Combine(InstallDir, "data", "server.port");
+                int port;
+                if (File.Exists(portFile) && int.TryParse(File.ReadAllText(portFile).Trim(), out port) && port > 0) return port;
+            }
+            catch { }
+            return 4372;
+        }
+
+        public static string BaseUrl()
+        {
+            return "http://127.0.0.1:" + ReadPort() + "/";
+        }
+
+        /// <summary>
+        /// Download the published install.ps1 and run it as a script file, so its exit code tells
+        /// whether the installation really succeeded. It needs no Git, Bun or admin rights.
+        /// </summary>
+        static void RunInstaller()
+        {
+            string installer = Path.Combine(Path.GetTempPath(), "agile-agent-install-" + Guid.NewGuid().ToString("N") + ".ps1");
+            try
+            {
+                ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+                using (WebClient wc = new WebClient())
+                {
+                    wc.DownloadFile(InstallScriptUrl, installer);
+                }
+
                 ProcessStartInfo psi = new ProcessStartInfo
                 {
-                    FileName = "winget",
-                    Arguments = "install --id Git.Git -e --source winget --accept-package-agreements --accept-source-agreements --silent",
+                    FileName = "powershell.exe",
+                    Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + installer + "\"",
                     UseShellExecute = true
                 };
-                Process p = Process.Start(psi);
-
-                // Show a non-blocking info dialog so the user knows what's happening
-                MessageBox.Show(Loc.Get("GitInstalling"), Loc.Get("GitInstallTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                // Wait for the installation to finish (p.WaitForExit will block until done)
-                p.WaitForExit(120000); // allow 2 min
-
-                // Refresh PATH so git is available in the current process
-                string newPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine)
-                    + ";" + Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User);
-                Environment.SetEnvironmentVariable("PATH", newPath);
-
-                return IsGitInstalled();
-            }
-            catch { return false; }
-        }
-
-        static bool IsBunInstalled()
-        {
-            try
-            {
-                ProcessStartInfo psi = new ProcessStartInfo
-                {
-                    FileName = "bun",
-                    Arguments = "--version",
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false
-                };
-                Process p = Process.Start(psi);
-                p.WaitForExit(3000);
-                return p.ExitCode == 0;
-            }
-            catch { return false; }
-        }
-
-        static bool InstallBunViaWinget()
-        {
-            try
-            {
-                ProcessStartInfo psi = new ProcessStartInfo
-                {
-                    FileName = "winget",
-                    Arguments = "install --id Oven-sh.Bun -e --source winget --accept-package-agreements --accept-source-agreements --silent",
-                    UseShellExecute = true
-                };
-                Process p = Process.Start(psi);
-
-                MessageBox.Show(Loc.Get("BunInstalling"), Loc.Get("BunInstallTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                p.WaitForExit(120000); // allow 2 min
-
-                // Refresh PATH so bun is available in the current process
-                string newPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine)
-                    + ";" + Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User);
-                Environment.SetEnvironmentVariable("PATH", newPath);
-
-                return IsBunInstalled();
-            }
-            catch { return false; }
-        }
-
-        /// <summary>Escape a value for a single-quoted PowerShell string (e.g. C:\Users\O'Brien).</summary>
-        static string PsQuote(string value)
-        {
-            return value.Replace("'", "''");
-        }
-
-        static void RunInstaller(string installDir, string currentExe, string targetExe)
-        {
-            // ─────────────────────────────────────────────────────────────────
-            // Branch config: this branch will always be used — no fallback.
-            // If the branch does not exist in the remote, setup will fail with
-            // a clear error. Push the branch to the release repo first.
-            // ─────────────────────────────────────────────────────────────────
-            // TEST: using private source repo (has platform/windows branch).
-            // TODO: switch back to agile-agent-release.git before distributing!
-            string repoUrl = "https://github.com/andreseloysv/agile-agent.git";
-            string branch = "main";  // production: "main"
-            // ─────────────────────────────────────────────────────────────────
-
-            // Ensure Git is available — install silently via winget if not
-            if (!IsGitInstalled())
-            {
-                if (!InstallGitViaWinget())
-                {
-                    MessageBox.Show(Loc.Get("GitInstallFailed"), Loc.Get("InstallFailed"), MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-            }
-
-            // Ensure Bun is available — install silently via winget if not
-            if (!IsBunInstalled())
-            {
-                if (!InstallBunViaWinget())
-                {
-                    MessageBox.Show(Loc.Get("BunInstallFailed"), Loc.Get("InstallFailed"), MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-            }
-
-            string psScript =
-                "$ErrorActionPreference = 'Stop'; " +
-                "Stop-Process -Name 'Agile Agent' -Force -ErrorAction SilentlyContinue; " +
-                "if (Test-Path '" + PsQuote(installDir) + "\\.git') { " +
-                "  Set-Location '" + PsQuote(installDir) + "'; " +
-                "  $hashBefore = (git rev-parse HEAD 2>$null); " +
-                "  Write-Host 'Updating existing installation...'; " +
-                "  git remote set-url origin '" + repoUrl + "'; " +
-                "  git fetch origin; " +
-                "  $currentBranch = (git rev-parse --abbrev-ref HEAD 2>$null); " +
-                "  if ($currentBranch -ne '" + branch + "') { " +
-                "    Write-Host ('Switching branch from ' + $currentBranch + ' to " + branch + "'); " +
-                "    git checkout -B '" + branch + "' origin/'" + branch + "'; " +
-                "  } else { " +
-                "    Write-Host 'Already on " + branch + ", pulling latest...'; " +
-                "    git reset --hard origin/'" + branch + "'; " +
-                "  } " +
-                "  $hashAfter = (git rev-parse HEAD 2>$null); " +
-                "  if ($hashBefore -ne $hashAfter) { " +
-                "    Write-Host 'New updates found, reinstalling dependencies...'; " +
-                "    $bunPath = Join-Path $env:USERPROFILE '.bun\\bin'; " +
-                "    $env:PATH = $bunPath + ';' + $env:PATH; " +
-                "    bun install; " +
-                "    Set-Location 'packages\\web'; bun run build; Set-Location '" + PsQuote(installDir) + "'; " +
-                "  } else { " +
-                "    Write-Host 'Already up to date, skipping install.'; " +
-                "  } " +
-                "} else { " +
-                "  Write-Host 'Cloning repository (" + branch + ")...'; " +
-                "  git clone -b '" + branch + "' '" + repoUrl + "' '" + PsQuote(installDir) + "'; " +
-                "  $bunPath = Join-Path $env:USERPROFILE '.bun\\bin'; " +
-                "  $env:PATH = $bunPath + ';' + $env:PATH; " +
-                "  Set-Location '" + PsQuote(installDir) + "'; " +
-                "  Write-Host 'Installing dependencies (first time)...'; " +
-                "  bun install; " +
-                "  Write-Host 'Building frontend...'; " +
-                "  Set-Location 'packages\\web'; bun run build; Set-Location '" + PsQuote(installDir) + "'; " +
-                "} " +
-                "Copy-Item -Path '" + PsQuote(currentExe) + "' -Destination '" + PsQuote(targetExe) + "' -Force; " +
-                "$startupFolder = [Environment]::GetFolderPath('Startup'); " +
-                "$shortcutPath = Join-Path $startupFolder 'Agile Agent.lnk'; " +
-                "$WshShell = New-Object -comObject WScript.Shell; " +
-                "$Shortcut = $WshShell.CreateShortcut($shortcutPath); " +
-                "$Shortcut.TargetPath = '" + PsQuote(targetExe) + "'; " +
-                "$Shortcut.Arguments = '--tray'; " +
-                "$Shortcut.WorkingDirectory = '" + PsQuote(installDir) + "'; " +
-                "$Shortcut.Save(); " +
-                "$extScript = Join-Path '" + PsQuote(installDir) + "' 'scripts\\install-vscode-extension.ps1'; " +
-                "if (Test-Path -LiteralPath $extScript) { & $extScript -InstallDir '" + PsQuote(installDir) + "' } " +
-                "else { Write-Host 'VS Code extension installer not found - skipping.' }; " +
-                "Start-Process '" + PsQuote(targetExe) + "'; " +
-                "Write-Host '--- Setup Finished. Please check for errors above ---'; ";
-
-            ProcessStartInfo psi = new ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Arguments = "-ExecutionPolicy Bypass -Command \"" + psScript + "\"",
-                UseShellExecute = true
-            };
-
-            try
-            {
                 Process p = Process.Start(psi);
                 p.WaitForExit();
                 if (p.ExitCode == 0)
                 {
-                    Process.Start(new ProcessStartInfo("cmd", "/c start http://localhost:4372") { CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden });
                     MessageBox.Show(Loc.Get("InstallSuccess"), Loc.Get("InstallComplete"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else
@@ -389,6 +239,10 @@ namespace AgileAgent
             {
                 MessageBox.Show(Loc.Get("InstallErrorEx", ex.Message), Loc.Get("InstallFailed"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+            finally
+            {
+                try { File.Delete(installer); } catch { }
+            }
         }
     }
 
@@ -398,11 +252,13 @@ namespace AgileAgent
         private ContextMenu trayMenu;
         private System.Threading.Timer statusTimer;
 
-        private readonly string version = "1.0.1";
-        private readonly int port = 4372;
-        private readonly string baseUrl = "http://127.0.0.1:4372/";
+        private readonly string version;
         private readonly string installDir;
         private readonly string serverExePath;
+        private Process serverProcess;
+
+        private string baseUrl { get { return Program.BaseUrl(); } }
+        private string PidFile { get { return Path.Combine(installDir, "data", "server.pid"); } }
         private bool isServerRunning = false;
         private bool silentMode = false;
 
@@ -413,7 +269,14 @@ namespace AgileAgent
         public TrayContext(bool silent = false)
         {
             this.silentMode = silent;
-            installDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".agile-agent");
+            installDir = Program.InstallDir;
+            version = "dev";
+            try
+            {
+                string versionFile = Path.Combine(installDir, "VERSION");
+                if (File.Exists(versionFile)) version = File.ReadAllLines(versionFile)[0].Trim();
+            }
+            catch { }
             string remotePath = Path.Combine(installDir, "agile-agent-service.exe");
             string localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "agile-agent-service.exe");
 
@@ -561,61 +424,92 @@ namespace AgileAgent
 
         private void StartServer()
         {
-            // Try dev mode first (if in git repo and bun is available)
-            if (Directory.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "packages", "server")))
-            {
-                    // Kill any processes on our port range (4372-4375) or any stray bun processes in our folder
-                    try {
-                        Process killPsi = new Process();
-                        killPsi.StartInfo.FileName = "powershell.exe";
-                        // Find bun processes where the working directory or command contains 'agile-agent/packages/server'
-                        killPsi.StartInfo.Arguments = "-Command \"4372..4375 | ForEach-Object { $p = Get-NetTCPConnection -LocalPort $_ -ErrorAction SilentlyContinue; if ($p) { $p | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue } } }; " +
-                                                        "Get-Process bun -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*agile-agent*' } | Stop-Process -Force -ErrorAction SilentlyContinue\"";
-                        killPsi.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
-                        killPsi.StartInfo.CreateNoWindow = true;
-                        killPsi.Start();
-                        killPsi.WaitForExit(2000);
-                    } catch {}
+            // Developer checkout (packages\server present) with Bun available: run from source
+            string devDir = Path.Combine(installDir, "packages", "server");
+            string bunExe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".bun", "bin", "bun.exe");
+            bool devMode = Directory.Exists(devDir) && !File.Exists(serverExePath);
 
-                    string bunPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".bun", "bin");
-                    ProcessStartInfo devPsi = new ProcessStartInfo
-                    {
-                        FileName = "powershell.exe",
-                        Arguments = string.Format("-Command \"$env:PATH = '{0};' + $env:PATH; bun src/index.ts\"", bunPath),
-                        WindowStyle = ProcessWindowStyle.Hidden,
-                        CreateNoWindow = true,
-                        WorkingDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "packages", "server")
-                    };
-                Process.Start(devPsi);
-                return;
+            ProcessStartInfo psi;
+            if (devMode)
+            {
+                psi = new ProcessStartInfo
+                {
+                    FileName = File.Exists(bunExe) ? bunExe : "bun",
+                    Arguments = "src/index.ts",
+                    WorkingDirectory = devDir,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+            }
+            else
+            {
+                if (!File.Exists(serverExePath))
+                {
+                    MessageBox.Show(Loc.Get("ExeNotFound", serverExePath), "Agile Agent", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+                psi = new ProcessStartInfo
+                {
+                    FileName = serverExePath,
+                    WorkingDirectory = installDir,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                psi.EnvironmentVariables["AGILE_AGENT_HOME"] = installDir;
+                psi.EnvironmentVariables["AGILE_AGENT_STATIC"] = Path.Combine(installDir, "public");
             }
 
-            if (!File.Exists(serverExePath))
+            try
             {
-                MessageBox.Show(Loc.Get("ExeNotFound", serverExePath), "Agile Agent", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
+                serverProcess = Process.Start(psi);
+                Directory.CreateDirectory(Path.Combine(installDir, "data"));
+                File.WriteAllText(PidFile, serverProcess.Id.ToString());
             }
-
-            ProcessStartInfo psi = new ProcessStartInfo
+            catch (Exception ex)
             {
-                FileName = serverExePath,
-                WindowStyle = ProcessWindowStyle.Hidden,
-                CreateNoWindow = true,
-                WorkingDirectory = Path.Combine(installDir)
-            };
-            Process.Start(psi);
+                MessageBox.Show(Loc.Get("InstallErrorEx", ex.Message), "Agile Agent", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
+        /// <summary>Stop only the server we started (never "whatever listens on the port").</summary>
         private void StopServer()
         {
-            ProcessStartInfo psi = new ProcessStartInfo
+            int pid = 0;
+            if (serverProcess != null && !serverProcess.HasExited) pid = serverProcess.Id;
+            else
             {
-                FileName = "powershell.exe",
-                Arguments = string.Format("-Command \"$listening = netstat -ano | findstr ':{0} '; if ($listening) {{ $tokens = -split $listening[0]; Stop-Process -Id $tokens[$tokens.Length - 1] -Force }}\"", port),
-                WindowStyle = ProcessWindowStyle.Hidden,
-                CreateNoWindow = true
-            };
-            Process.Start(psi).WaitForExit();
+                try
+                {
+                    int filePid;
+                    if (File.Exists(PidFile) && int.TryParse(File.ReadAllText(PidFile).Trim(), out filePid))
+                    {
+                        Process candidate = Process.GetProcessById(filePid);
+                        string exe = candidate.MainModule.FileName;
+                        if (exe.Equals(serverExePath, StringComparison.OrdinalIgnoreCase) || exe.EndsWith("bun.exe", StringComparison.OrdinalIgnoreCase))
+                            pid = filePid;
+                    }
+                }
+                catch { }
+            }
+
+            if (pid > 0)
+            {
+                try
+                {
+                    // /T also stops the commands the agent started; /F because the server has no console
+                    ProcessStartInfo kill = new ProcessStartInfo("taskkill", "/PID " + pid + " /T /F")
+                    {
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        WindowStyle = ProcessWindowStyle.Hidden
+                    };
+                    Process.Start(kill).WaitForExit(10000);
+                }
+                catch { }
+            }
+            serverProcess = null;
+            try { File.Delete(PidFile); } catch { }
+            try { File.Delete(Path.Combine(installDir, "data", "server.port")); } catch { }
         }
 
         private void OpenBrowser(object sender, EventArgs e)
@@ -624,7 +518,7 @@ namespace AgileAgent
             {
                 Process.Start(new ProcessStartInfo(baseUrl) { UseShellExecute = true });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Fallback for some older systems or unexpected errors
                 Process.Start("cmd", "/c start " + baseUrl);
@@ -633,17 +527,23 @@ namespace AgileAgent
 
         private void RunUpdate(object sender, EventArgs e)
         {
-            string updateScript = Path.Combine(installDir, "update.sh");
-            ProcessStartInfo psi;
-            if (File.Exists(updateScript))
+            string updateScript = Path.Combine(installDir, "update.ps1");
+            if (!File.Exists(updateScript))
             {
-                psi = new ProcessStartInfo("bash", updateScript) { WorkingDirectory = installDir };
+                MessageBox.Show(Loc.Get("ExeNotFound", updateScript), "Agile Agent", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
             }
-            else
+            // update.ps1 waits for this launcher to exit (its .exe is locked while running),
+            // updates server + launcher, and starts the tray again.
+            ProcessStartInfo psi = new ProcessStartInfo
             {
-                psi = new ProcessStartInfo("powershell", "-NoExit -Command \"git pull\"") { WorkingDirectory = installDir };
-            }
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + updateScript + "\" -WaitForPid " + Process.GetCurrentProcess().Id,
+                WorkingDirectory = installDir,
+                UseShellExecute = true
+            };
             Process.Start(psi);
+            ExitApp(sender, e);
         }
 
         private void ExitApp(object sender, EventArgs e)

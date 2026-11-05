@@ -40,7 +40,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 LABEL="com.agile-agent"
 PLIST="$HOME/Library/LaunchAgents/${LABEL}.plist"
 PID_FILE="/tmp/agile-agent-dev.pid"
-PORT=4373
+PORT=4372
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -83,7 +83,7 @@ status() {
     # Check LaunchAgent
     if launchctl list "$LABEL" &>/dev/null; then
         local la_pid
-        la_pid=$(launchctl list "$LABEL" 2>/dev/null | grep -oE '^\d+' || echo "")
+        la_pid=$(launchctl list "$LABEL" 2>/dev/null | grep -oE '^[0-9]+' || echo "")
         if [[ -n "$la_pid" && "$la_pid" != "-" ]]; then
             echo -e "${GREEN}●${NC} Agile Agent is ${GREEN}running${NC} (production, PID $la_pid)"
             echo -e "  Logs: /tmp/agile-agent.log"

@@ -29,7 +29,7 @@ INSTALL_DIR="${AGILE_AGENT_HOME:-$HOME/.agile-agent}"
 REPO_URL="https://github.com/andreseloysv/agile-agent-release.git"
 PLIST_NAME="com.agile-agent"
 PLIST_PATH="$HOME/Library/LaunchAgents/${PLIST_NAME}.plist"
-PORT=4373
+PORT=4372
 
 info()    { echo -e "${BLUE}▸${RESET} $1"; }
 success() { echo -e "${GREEN}✔${RESET} $1"; }
@@ -45,29 +45,11 @@ fi
 
 # ── Uninstall mode ───────────────────────────────────────────────────────────
 if [[ "${1:-}" == "--uninstall" ]]; then
-    step "Uninstalling Agile Agent"
-
-    if [[ -f "$PLIST_PATH" ]]; then
-        launchctl unload "$PLIST_PATH" 2>/dev/null || true
-        rm -f "$PLIST_PATH"
-        success "LaunchAgent service removed"
-    else
-        info "No LaunchAgent service found"
+    # One uninstaller for every install path (see uninstall.sh); pass --remove-data to delete data too
+    if [[ -f "$INSTALL_DIR/uninstall.sh" ]]; then
+        exec bash "$INSTALL_DIR/uninstall.sh" "${@:2}"
     fi
-
-    if [[ -d "$INSTALL_DIR" ]]; then
-        read -p "$(echo -e "${YELLOW}Remove $INSTALL_DIR and all data? [y/N] ${RESET}")" -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            rm -rf "$INSTALL_DIR"
-            success "Removed $INSTALL_DIR"
-        else
-            info "Kept $INSTALL_DIR"
-        fi
-    fi
-
-    echo -e "\n${GREEN}${BOLD}🗑️  Agile Agent has been uninstalled.${RESET}\n"
-    exit 0
+    exec bash <(curl -fsSL https://raw.githubusercontent.com/andreseloysv/agile-agent-release/main/uninstall.sh) "${@:2}"
 fi
 
 # ── Banner ───────────────────────────────────────────────────────────────────
@@ -125,7 +107,6 @@ if [[ -d "$INSTALL_DIR/.git" ]]; then
     #   .env                — user environment config
     #   *.db, *.db-wal, *.db-shm — SQLite files that may be at root
     # Only remove specific known obsolete files:
-    rm -f "$INSTALL_DIR/agile-agent" 2>/dev/null || true  # old single-binary symlink, re-created below
     # (Binaries are now downloaded from GitHub Releases, not Git LFS)
     success "Updated to latest version"
 else
@@ -151,9 +132,24 @@ else
     exit 1
 fi
 
+# ── Helper: atomic download of a release binary ──────────────────────────
+# Downloads to "<dest>.download", checks it is a real macOS executable (not a truncated
+# file or an HTML error page), then renames over <dest>. Renaming is safe while the old
+# binary is running, and a failed download never leaves a broken binary behind.
+download_release_binary() {
+    local dest="$1" url="$2" runner="${3:-}"
+    local tmp="${dest}.download" size
+    rm -f "$tmp"
+    if ! $runner curl -L --fail -sS --retry 2 "$url" -o "$tmp"; then rm -f "$tmp"; return 1; fi
+    size=$(stat -f%z "$tmp" 2>/dev/null || echo 0)
+    if (( size < 10000000 )) || ! file "$tmp" | grep -q "Mach-O"; then rm -f "$tmp"; return 1; fi
+    chmod +x "$tmp"
+    $runner mv -f "$tmp" "$dest"
+}
+
 info "Downloading $BINARY_NAME from GitHub Releases..."
-curl -L --fail -# "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/$BINARY_NAME" -o "$INSTALL_DIR/$BINARY_NAME" || {
-    error "Failed to download $BINARY_NAME. The release might not be available."
+download_release_binary "$INSTALL_DIR/$BINARY_NAME" "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/$BINARY_NAME" || {
+    error "Failed to download $BINARY_NAME (network error or incomplete release). Nothing was changed."
     exit 1
 }
 
@@ -163,10 +159,9 @@ curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/
 # GitHub Releases converts spaces to dots in asset names, so the DMG is served as 'Agile.Agent.dmg'
 curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/Agile.Agent.dmg" -o "$INSTALL_DIR/Agile Agent.dmg" || true
 
-chmod +x "$INSTALL_DIR/$BINARY_NAME"
-
 # Symlink to 'agile-agent' so LaunchAgent and scripts always find it
 ln -sf "$INSTALL_DIR/$BINARY_NAME" "$INSTALL_DIR/agile-agent"
+git -C "$INSTALL_DIR" rev-parse HEAD > "$INSTALL_DIR/.binary-version" 2>/dev/null || true
 success "Binary ready for $ARCH ($(du -sh "$INSTALL_DIR/$BINARY_NAME" | cut -f1))"
 
 # ── Step 4: Create data directory ─────────────────────────────────────────────
@@ -201,8 +196,12 @@ cat > "$PLIST_PATH" <<EOF
     <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     <key>HOME</key><string>${HOME}</string>
   </dict>
-  <key>RunAtLoad</key><false/>
-  <key>KeepAlive</key><false/>
+  <key>RunAtLoad</key><true/>
+  <!-- Restart after crashes / self-update (non-zero exit), but respect a normal stop (exit 0) -->
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key><false/>
+  </dict>
   <key>StandardOutPath</key><string>/tmp/agile-agent.log</string>
   <key>StandardErrorPath</key><string>/tmp/agile-agent.err</string>
 </dict>

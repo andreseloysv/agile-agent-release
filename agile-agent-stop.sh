@@ -11,7 +11,7 @@ set -euo pipefail
 LABEL="com.agile-agent"
 PLIST="$HOME/Library/LaunchAgents/${LABEL}.plist"
 PID_FILE="/tmp/agile-agent-dev.pid"
-PORT=4373
+PORT=4372
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'

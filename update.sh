@@ -11,6 +11,21 @@ PLIST_NAME="com.agile-agent"
 PLIST_PATH="$HOME/Library/LaunchAgents/${PLIST_NAME}.plist"
 LOG="/tmp/agile-agent-update.log"
 
+# ── Helper: atomic download of a release binary ──────────────────────────
+# Downloads to "<dest>.download", checks it is a real macOS executable (not a truncated
+# file or an HTML error page), then renames over <dest>. Renaming is safe while the old
+# binary is running, and a failed download never leaves a broken binary behind.
+download_release_binary() {
+    local dest="$1" url="$2" runner="${3:-}"
+    local tmp="${dest}.download" size
+    rm -f "$tmp"
+    if ! $runner curl -L --fail -sS --retry 2 "$url" -o "$tmp"; then rm -f "$tmp"; return 1; fi
+    size=$(stat -f%z "$tmp" 2>/dev/null || echo 0)
+    if (( size < 10000000 )) || ! file "$tmp" | grep -q "Mach-O"; then rm -f "$tmp"; return 1; fi
+    chmod +x "$tmp"
+    $runner mv -f "$tmp" "$dest"
+}
+
 # ── Helper: locate the VS Code CLI wherever VS Code is installed ───────────
 # PATH first, then Spotlight (finds VS Code even if the app was moved or renamed,
 # or lives in ~/Applications or on another volume), then the usual locations.
@@ -56,20 +71,6 @@ git fetch --quiet origin main 2>>"$LOG" || { log "Network error, skipping."; ech
 echo "Applying updates..."
 git reset --hard origin/main --quiet 2>>"$LOG" || { log "Cannot reset to origin/main, skipping."; echo "❌ Cannot apply update."; exit 0; }
 
-# Download updated binaries from GitHub Releases
-echo "Downloading latest binaries..."
-ARCH=$(uname -m)
-if [[ "$ARCH" == "arm64" ]]; then BINARY_NAME="agile-agent-arm64"; else BINARY_NAME="agile-agent-x86_64"; fi
-curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/$BINARY_NAME" -o "$INSTALL_DIR/$BINARY_NAME" || log "WARNING: Failed to download $BINARY_NAME"
-chmod +x "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null || true
-
-curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/Agile.Agent.dmg" -o "$INSTALL_DIR/Agile Agent.dmg" || true
-curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/copilot-bridge.vsix" -o "$INSTALL_DIR/copilot-bridge.vsix" || true
-if [[ -f "$INSTALL_DIR/copilot-bridge.vsix" ]] && CODE_CMD="$(find_vscode_cli "$HOME")"; then
-    env -u ELECTRON_RUN_AS_NODE "$CODE_CMD" --install-extension "$INSTALL_DIR/copilot-bridge.vsix" --force >>"$LOG" 2>&1 \
-        && log "VS Code extension updated via $CODE_CMD" || log "WARNING: VS Code extension update failed"
-fi
-
 # ⚠️ DO NOT use `git clean -fd` here!
 # The install dir contains untracked user data:
 #   data/agile-agent.db  — SQLite database (projects, conversations, env vars)
@@ -80,13 +81,37 @@ fi
 
 AFTER=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
-if [[ "$BEFORE" == "$AFTER" ]]; then
+ARCH=$(uname -m)
+if [[ "$ARCH" == "arm64" ]]; then BINARY_NAME="agile-agent-arm64"; else BINARY_NAME="agile-agent-x86_64"; fi
+
+# .binary-version records which release the installed binary belongs to; it is written only
+# after a successful download, so a failed download is retried on the next run. Skipping when
+# it matches also avoids re-downloading ~100 MB every hour.
+INSTALLED_VERSION=$(cat "$INSTALL_DIR/.binary-version" 2>/dev/null || echo "")
+if [[ "$INSTALLED_VERSION" == "$AFTER" && -x "$INSTALL_DIR/$BINARY_NAME" ]]; then
     log "Already up to date ($AFTER)."
     echo "✅ Already up to date."
     exit 0
 fi
 
-log "Updated $BEFORE → $AFTER. Restarting service..."
+# Download updated release assets (binary atomically: never leaves a truncated executable)
+echo "Downloading latest binaries..."
+if ! download_release_binary "$INSTALL_DIR/$BINARY_NAME" "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/$BINARY_NAME"; then
+    log "ERROR: Failed to download $BINARY_NAME — keeping the current binary, will retry next run."
+    echo "❌ Download failed. Will retry later."
+    exit 0
+fi
+ln -sf "$INSTALL_DIR/$BINARY_NAME" "$INSTALL_DIR/agile-agent"
+echo "$AFTER" > "$INSTALL_DIR/.binary-version"
+
+curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/Agile.Agent.dmg" -o "$INSTALL_DIR/Agile Agent.dmg" || true
+curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/copilot-bridge.vsix" -o "$INSTALL_DIR/copilot-bridge.vsix" || true
+if [[ -f "$INSTALL_DIR/copilot-bridge.vsix" ]] && CODE_CMD="$(find_vscode_cli "$HOME")"; then
+    env -u ELECTRON_RUN_AS_NODE "$CODE_CMD" --install-extension "$INSTALL_DIR/copilot-bridge.vsix" --force >>"$LOG" 2>&1 \
+        && log "VS Code extension updated via $CODE_CMD" || log "WARNING: VS Code extension update failed"
+fi
+
+log "Updated ${INSTALLED_VERSION:-unknown} → $AFTER. Restarting service..."
 echo "✅ Updated! Restarting service..."
 
 # Graceful shutdown: check if the server is actively processing a request
@@ -106,6 +131,7 @@ fi
 launchctl unload "$PLIST_PATH" 2>>"$LOG" || true
 sleep 1
 launchctl load -w "$PLIST_PATH" 2>>"$LOG" || true
+launchctl start "$PLIST_NAME" 2>>"$LOG" || true
 
 # Update the macOS UI App if DMG exists
 DMG_PATH="$INSTALL_DIR/Agile Agent.dmg"

@@ -83,12 +83,18 @@ Write-Host "Installing VS Code extension via $cli ..."
 # The VS Code launcher is an Electron app; never let it run as plain Node
 Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
 try {
-    & $cli --install-extension $vsixPath --force | Out-Host
-    if ($LASTEXITCODE -eq 0) {
+    # Start-Process keeps VS Code's stderr (e.g. Node deprecation warnings) out of the console:
+    # Windows PowerShell 5.1 shows native stderr as red "NativeCommandError" text even on success.
+    $errLog = Join-Path ([IO.Path]::GetTempPath()) ('agile-agent-vscode-' + [Guid]::NewGuid().ToString('N') + '.log')
+    $proc = Start-Process -FilePath $cli -ArgumentList @('--install-extension', "`"$vsixPath`"", '--force') `
+        -NoNewWindow -Wait -PassThru -RedirectStandardError $errLog
+    if ($proc.ExitCode -eq 0) {
         Write-Host 'Copilot Bridge extension installed in VS Code.' -ForegroundColor Green
     } else {
-        Write-Host "WARNING: VS Code returned exit code $LASTEXITCODE. Install manually: code --install-extension `"$vsixPath`"" -ForegroundColor Yellow
+        Get-Content -LiteralPath $errLog -ErrorAction SilentlyContinue | Select-Object -Last 5 | ForEach-Object { Write-Host "  $_" }
+        Write-Host "WARNING: VS Code returned exit code $($proc.ExitCode). Install manually: code --install-extension `"$vsixPath`"" -ForegroundColor Yellow
     }
+    Remove-Item -LiteralPath $errLog -Force -ErrorAction SilentlyContinue
 } catch {
     Write-Host "WARNING: Could not install the extension: $($_.Exception.Message)" -ForegroundColor Yellow
 }

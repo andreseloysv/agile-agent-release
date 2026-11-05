@@ -15,33 +15,27 @@ Download **[Agile Agent.dmg](https://github.com/andreseloysv/agile-agent-release
 curl -fsSL https://raw.githubusercontent.com/andreseloysv/agile-agent-release/main/install.sh | bash
 ```
 
-## Install (Windows)
-
-**Option A — Clickable installer (Recommended):**
-
-Download **[Agile Agent.exe](./Agile%20Agent.exe)**, open it, and follow the prompt.
-It will automatically install to `~/.agile-agent`, add a startup shortcut, and launch the system tray app.
-
-**Option B — Terminal:**
+## Install (Windows 10/11)
 
 Open PowerShell and run:
 ```powershell
 irm https://raw.githubusercontent.com/andreseloysv/agile-agent-release/main/install.ps1 | iex
 ```
+No Git, Bun or admin rights needed. It installs to `%USERPROFILE%\.agile-agent`, builds the tray
+launcher, installs the VS Code extension, adds a Startup shortcut and opens Agile Agent.
 
 ## Update
 
-```bash
-# macOS
-cd ~/.agile-agent && git pull
-
-# Windows
-cd ~\.agile-agent && git pull
-```
+Updates install automatically on macOS (hourly). On Windows use the tray menu
+**Check for Updates**, or run the install command again.
 
 ## Uninstall
 
 ```bash
 # macOS
 ~/.agile-agent/uninstall.sh
+```
+```powershell
+# Windows (keeps your data; add -RemoveData to delete it too)
+powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.agile-agent\uninstall.ps1"
 ```
