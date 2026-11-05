@@ -272,6 +272,12 @@ namespace AgileAgent
             catch { return false; }
         }
 
+        /// <summary>Escape a value for a single-quoted PowerShell string (e.g. C:\Users\O'Brien).</summary>
+        static string PsQuote(string value)
+        {
+            return value.Replace("'", "''");
+        }
+
         static void RunInstaller(string installDir, string currentExe, string targetExe)
         {
             // ─────────────────────────────────────────────────────────────────
@@ -308,8 +314,8 @@ namespace AgileAgent
             string psScript =
                 "$ErrorActionPreference = 'Stop'; " +
                 "Stop-Process -Name 'Agile Agent' -Force -ErrorAction SilentlyContinue; " +
-                "if (Test-Path '" + installDir + "\\.git') { " +
-                "  Set-Location '" + installDir + "'; " +
+                "if (Test-Path '" + PsQuote(installDir) + "\\.git') { " +
+                "  Set-Location '" + PsQuote(installDir) + "'; " +
                 "  $hashBefore = (git rev-parse HEAD 2>$null); " +
                 "  Write-Host 'Updating existing installation...'; " +
                 "  git remote set-url origin '" + repoUrl + "'; " +
@@ -328,31 +334,34 @@ namespace AgileAgent
                 "    $bunPath = Join-Path $env:USERPROFILE '.bun\\bin'; " +
                 "    $env:PATH = $bunPath + ';' + $env:PATH; " +
                 "    bun install; " +
-                "    Set-Location 'packages\\web'; bun run build; Set-Location '" + installDir + "'; " +
+                "    Set-Location 'packages\\web'; bun run build; Set-Location '" + PsQuote(installDir) + "'; " +
                 "  } else { " +
                 "    Write-Host 'Already up to date, skipping install.'; " +
                 "  } " +
                 "} else { " +
                 "  Write-Host 'Cloning repository (" + branch + ")...'; " +
-                "  git clone -b '" + branch + "' '" + repoUrl + "' '" + installDir + "'; " +
+                "  git clone -b '" + branch + "' '" + repoUrl + "' '" + PsQuote(installDir) + "'; " +
                 "  $bunPath = Join-Path $env:USERPROFILE '.bun\\bin'; " +
                 "  $env:PATH = $bunPath + ';' + $env:PATH; " +
-                "  Set-Location '" + installDir + "'; " +
+                "  Set-Location '" + PsQuote(installDir) + "'; " +
                 "  Write-Host 'Installing dependencies (first time)...'; " +
                 "  bun install; " +
                 "  Write-Host 'Building frontend...'; " +
-                "  Set-Location 'packages\\web'; bun run build; Set-Location '" + installDir + "'; " +
+                "  Set-Location 'packages\\web'; bun run build; Set-Location '" + PsQuote(installDir) + "'; " +
                 "} " +
-                "Copy-Item -Path '" + currentExe + "' -Destination '" + targetExe + "' -Force; " +
+                "Copy-Item -Path '" + PsQuote(currentExe) + "' -Destination '" + PsQuote(targetExe) + "' -Force; " +
                 "$startupFolder = [Environment]::GetFolderPath('Startup'); " +
                 "$shortcutPath = Join-Path $startupFolder 'Agile Agent.lnk'; " +
                 "$WshShell = New-Object -comObject WScript.Shell; " +
                 "$Shortcut = $WshShell.CreateShortcut($shortcutPath); " +
-                "$Shortcut.TargetPath = '" + targetExe + "'; " +
+                "$Shortcut.TargetPath = '" + PsQuote(targetExe) + "'; " +
                 "$Shortcut.Arguments = '--tray'; " +
-                "$Shortcut.WorkingDirectory = '" + installDir + "'; " +
+                "$Shortcut.WorkingDirectory = '" + PsQuote(installDir) + "'; " +
                 "$Shortcut.Save(); " +
-                "Start-Process '" + targetExe + "'; " +
+                "$extScript = Join-Path '" + PsQuote(installDir) + "' 'scripts\\install-vscode-extension.ps1'; " +
+                "if (Test-Path -LiteralPath $extScript) { & $extScript -InstallDir '" + PsQuote(installDir) + "' } " +
+                "else { Write-Host 'VS Code extension installer not found - skipping.' }; " +
+                "Start-Process '" + PsQuote(targetExe) + "'; " +
                 "Write-Host '--- Setup Finished. Please check for errors above ---'; ";
 
             ProcessStartInfo psi = new ProcessStartInfo

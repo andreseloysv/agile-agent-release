@@ -300,36 +300,44 @@ fi
 # ── Step 7: Install VS Code Copilot Bridge extension ─────────────────────────
 step "VS Code Copilot Bridge Extension"
 
+# ── Helper: locate the VS Code CLI wherever VS Code is installed ───────────
+# PATH first, then Spotlight (finds VS Code even if the app was moved or renamed,
+# or lives in ~/Applications or on another volume), then the usual locations.
+find_vscode_cli() {
+    local home="${1:-$HOME}" app c
+    if command -v code >/dev/null 2>&1; then command -v code; return 0; fi
+    local apps=()
+    if command -v mdfind >/dev/null 2>&1; then
+        while IFS= read -r app; do
+            [[ "$app" == *.app ]] && apps+=("$app")
+        done < <(mdfind "kMDItemCFBundleIdentifier == 'com.microsoft.VSCode*'" 2>/dev/null || true)
+    fi
+    apps+=("/Applications/Visual Studio Code.app" "$home/Applications/Visual Studio Code.app" \
+           "/Applications/Visual Studio Code - Insiders.app" "$home/Applications/Visual Studio Code - Insiders.app")
+    for app in "${apps[@]}"; do
+        for c in "$app/Contents/Resources/app/bin/code" "$app/Contents/Resources/app/bin/code-insiders"; do
+            if [[ -x "$c" ]]; then echo "$c"; return 0; fi
+        done
+    done
+    for c in /usr/local/bin/code /opt/homebrew/bin/code /usr/bin/code /snap/bin/code; do
+        if [[ -x "$c" ]]; then echo "$c"; return 0; fi
+    done
+    return 1
+}
+
 VSIX_PATH="$INSTALL_DIR/copilot-bridge.vsix"
 
 if [[ -f "$VSIX_PATH" ]]; then
-    # Auto-detect VS Code CLI if not in PATH
-    if ! command -v code &>/dev/null; then
-        # Check common macOS VS Code locations
-        VSCODE_PATHS=(
-            "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
-            "$HOME/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
-            "/Applications/Visual Studio Code - Insiders.app/Contents/Resources/app/bin/code-insiders"
-        )
-        for vsp in "${VSCODE_PATHS[@]}"; do
-            if [[ -f "$vsp" ]]; then
-                info "Found VS Code at: $(dirname "$(dirname "$(dirname "$(dirname "$(dirname "$vsp")")")")")"
-                export PATH="$(dirname "$vsp"):$PATH"
-                break
-            fi
-        done
-    fi
-
-    if command -v code &>/dev/null; then
-        info "Installing VS Code extension..."
-        code --install-extension "$VSIX_PATH" --force 2>/dev/null && \
+    if CODE_CMD="$(find_vscode_cli "$HOME")"; then
+        info "Installing VS Code extension via $CODE_CMD..."
+        env -u ELECTRON_RUN_AS_NODE "$CODE_CMD" --install-extension "$VSIX_PATH" --force >/dev/null 2>&1 && \
             success "Copilot Bridge extension installed in VS Code" || \
-            warn "Failed to auto-install extension. Install manually: code --install-extension $VSIX_PATH"
+            warn "Failed to auto-install extension. Install manually: code --install-extension \"$VSIX_PATH\""
     else
         warn "VS Code not found on this machine."
         echo -e "  ${DIM}To use the Copilot Bridge:${RESET}"
         echo -e "  ${DIM}1. Install VS Code: ${CYAN}https://code.visualstudio.com${RESET}"
-        echo -e "  ${DIM}2. Then run:${RESET} ${CYAN}code --install-extension $VSIX_PATH${RESET}"
+        echo -e "  ${DIM}2. Then run:${RESET} ${CYAN}code --install-extension \"$VSIX_PATH\"${RESET}"
     fi
 else
     info "No VS Code extension found in release — skipping"

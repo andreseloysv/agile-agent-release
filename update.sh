@@ -11,6 +11,31 @@ PLIST_NAME="com.agile-agent"
 PLIST_PATH="$HOME/Library/LaunchAgents/${PLIST_NAME}.plist"
 LOG="/tmp/agile-agent-update.log"
 
+# ── Helper: locate the VS Code CLI wherever VS Code is installed ───────────
+# PATH first, then Spotlight (finds VS Code even if the app was moved or renamed,
+# or lives in ~/Applications or on another volume), then the usual locations.
+find_vscode_cli() {
+    local home="${1:-$HOME}" app c
+    if command -v code >/dev/null 2>&1; then command -v code; return 0; fi
+    local apps=()
+    if command -v mdfind >/dev/null 2>&1; then
+        while IFS= read -r app; do
+            [[ "$app" == *.app ]] && apps+=("$app")
+        done < <(mdfind "kMDItemCFBundleIdentifier == 'com.microsoft.VSCode*'" 2>/dev/null || true)
+    fi
+    apps+=("/Applications/Visual Studio Code.app" "$home/Applications/Visual Studio Code.app" \
+           "/Applications/Visual Studio Code - Insiders.app" "$home/Applications/Visual Studio Code - Insiders.app")
+    for app in "${apps[@]}"; do
+        for c in "$app/Contents/Resources/app/bin/code" "$app/Contents/Resources/app/bin/code-insiders"; do
+            if [[ -x "$c" ]]; then echo "$c"; return 0; fi
+        done
+    done
+    for c in /usr/local/bin/code /opt/homebrew/bin/code /usr/bin/code /snap/bin/code; do
+        if [[ -x "$c" ]]; then echo "$c"; return 0; fi
+    done
+    return 1
+}
+
 log() { echo "[$(date '+%H:%M:%S')] $1" >> "$LOG"; }
 
 log "Checking for updates..."
@@ -40,6 +65,10 @@ chmod +x "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null || true
 
 curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/Agile.Agent.dmg" -o "$INSTALL_DIR/Agile Agent.dmg" || true
 curl -L --fail -s "https://github.com/andreseloysv/agile-agent-release/releases/latest/download/copilot-bridge.vsix" -o "$INSTALL_DIR/copilot-bridge.vsix" || true
+if [[ -f "$INSTALL_DIR/copilot-bridge.vsix" ]] && CODE_CMD="$(find_vscode_cli "$HOME")"; then
+    env -u ELECTRON_RUN_AS_NODE "$CODE_CMD" --install-extension "$INSTALL_DIR/copilot-bridge.vsix" --force >>"$LOG" 2>&1 \
+        && log "VS Code extension updated via $CODE_CMD" || log "WARNING: VS Code extension update failed"
+fi
 
 # ⚠️ DO NOT use `git clean -fd` here!
 # The install dir contains untracked user data:

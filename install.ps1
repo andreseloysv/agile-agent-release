@@ -27,6 +27,7 @@ Write-Host "`nPreparing Agile Agent launcher..."
 # 2. Add Tray App to Startup folder
 Write-Host "`nAdding shortcut to Startup..."
 $startupFolder = [Environment]::GetFolderPath("Startup")
+$WshShell = New-Object -ComObject WScript.Shell
 
 # Tray App Shortcut
 $trayShortcutPath = "$startupFolder\AgileAgent.lnk"
@@ -37,7 +38,16 @@ $TrayShortcut.Save()
 
 Write-Host "Added startup shortcut: $trayShortcutPath"
 
-# 3. Start the Tray App
+# 3. VS Code Copilot Bridge extension (exposes Agile Agent tools to GitHub Copilot)
+Write-Host "`nInstalling VS Code extension..."
+$extScript = Join-Path $installDir 'scripts\install-vscode-extension.ps1'
+if (Test-Path -LiteralPath $extScript) {
+    & $extScript -InstallDir $installDir
+} else {
+    Write-Host "Extension installer not found in this release - skipping." -ForegroundColor Yellow
+}
+
+# 4. Start the Tray App
 Write-Host "`nStarting Agile Agent..."
 Start-Process "$installDir\Agile Agent.exe" -WorkingDirectory $installDir
 
